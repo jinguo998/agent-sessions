@@ -61,7 +61,8 @@ fi
 
 	home := filepath.Join(tmp, "home")
 	project := filepath.Join(tmp, "project")
-	sessionsDir := filepath.Join(home, ".codex", "sessions", "2026", "07", "10")
+	codexHome := filepath.Join(home, "codex-data")
+	sessionsDir := filepath.Join(codexHome, "sessions", "2026", "07", "10")
 	if err := os.MkdirAll(sessionsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +89,7 @@ fi
 	}
 
 	setupPath := filepath.Join(tmp, "setup.zsh")
-	setupScript := fmt.Sprintf("export HOME=%q\nexport PATH=%q\nexport PROBE_FILE=%q\nstty -ixon\neval \"$(%q init zsh)\"\nprint -r -- INIT_READY\n", home, pathEnv, probePath, claudeSessions)
+	setupScript := fmt.Sprintf("export HOME=%q\nexport PATH=%q\nexport PROBE_FILE=%q\nexport CODEX_HOME=%q\nstty -ixon\neval \"$(%q init zsh)\"\nprint -r -- INIT_READY\n", home, pathEnv, probePath, codexHome, claudeSessions)
 	if err := os.WriteFile(setupPath, []byte(setupScript), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +167,14 @@ func writeCodexFixture(t *testing.T, path, id, project string) {
 		{
 			"timestamp": "2026-07-10T00:00:01Z",
 			"type":      "event_msg",
-			"payload":   map[string]any{"type": "user_message", "message": "tmux tty fixture"},
+			"payload": map[string]any{
+				"type": "item_completed",
+				"item": map[string]any{
+					"type":      "UserMessage",
+					"client_id": "fixture-user",
+					"content":   []map[string]string{{"type": "text", "text": "tmux tty fixture"}},
+				},
+			},
 		},
 	}
 	var content strings.Builder

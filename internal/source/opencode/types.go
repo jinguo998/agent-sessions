@@ -33,6 +33,7 @@ type previewRow struct {
 	MessageTime int64           `json:"message_time"`
 	PartTime    int64           `json:"part_time"`
 	PartData    json.RawMessage `json:"part_data"`
+	MessageData string          `json:"message_data"`
 }
 
 type partData struct {
@@ -46,8 +47,12 @@ type partData struct {
 }
 
 type toolState struct {
-	Input  json.RawMessage `json:"input"`
-	Output json.RawMessage `json:"output"`
+	Input   json.RawMessage `json:"input"`
+	Output  json.RawMessage `json:"output"`
+	Content []partData      `json:"content"`
+	Error   *struct {
+		Message string `json:"message"`
+	} `json:"error"`
 }
 
 type modelData struct {

@@ -18,7 +18,7 @@ import (
 // codexUUIDRe matches the UUID portion at the end of a Codex session filename.
 var codexUUIDRe = regexp.MustCompile(`([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$`)
 
-const codexMetadataKeyVersion = "codex-meta-v2"
+const codexMetadataKeyVersion = "codex-meta-v3"
 
 // ExtractCodexSessionID extracts the UUID from a Codex session filename.
 func ExtractCodexSessionID(filename string) string {
@@ -106,7 +106,7 @@ func ScanCodexSessionFile(path string, fileSize int64, threadIndex map[string]st
 				projectPath = meta.CWD
 				originator = meta.Originator
 				editorSource = codexClientLabel(meta)
-				isGuardian = meta.ThreadSource == "subagent" && CodexSourceSubagentOther(meta.Source) == "guardian"
+				isGuardian = codexMetaIsGuardian(meta)
 			}
 
 		case "turn_context":
@@ -122,16 +122,10 @@ func ScanCodexSessionFile(path string, fileSize int64, threadIndex map[string]st
 			if json.Unmarshal(line.Payload, &evt) != nil {
 				continue
 			}
-			switch evt.Type {
-			case "user_message":
+			if msg, user := evt.userMessage(); user {
 				msgCount++
-				msg := strings.TrimSpace(evt.Message)
 				if msg == "" {
 					continue
-				}
-				msg = stripTaskPrefix(msg)
-				if summary, ok := codexApprovalRequestSummary(msg); ok {
-					msg = summary
 				}
 				msg = strings.Join(strings.Fields(msg), " ")
 				allUserMsgs = append(allUserMsgs, msg)
@@ -143,7 +137,8 @@ func ScanCodexSessionFile(path string, fileSize int64, threadIndex map[string]st
 					firstMsg = truncated
 				}
 				lastMsg = truncated
-			case "token_count":
+			}
+			if evt.Type == "token_count" {
 				if evt.Info != nil && string(evt.Info) != "null" {
 					var ti CodexTokenInfo
 					if json.Unmarshal(evt.Info, &ti) == nil && ti.TotalTokenUsage != nil {
@@ -222,17 +217,21 @@ func (Adapter) Source() domain.Source {
 }
 
 func (a Adapter) Discover(ctx context.Context) ([]source.Candidate, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
+	root := os.Getenv("CODEX_HOME")
+	if root == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		root = filepath.Join(home, ".codex")
 	}
 
-	sessionsDir := filepath.Join(home, ".codex", "sessions")
+	sessionsDir := filepath.Join(root, "sessions")
 	if _, err := os.Stat(sessionsDir); err != nil {
 		return nil, err
 	}
 
-	indexPath := filepath.Join(home, ".codex", "session_index.jsonl")
+	indexPath := filepath.Join(root, "session_index.jsonl")
 	threadIndex, indexErr := LoadCodexSessionIndex(indexPath)
 	if os.IsNotExist(indexErr) {
 		indexErr = nil

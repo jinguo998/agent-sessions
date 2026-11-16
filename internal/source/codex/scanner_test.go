@@ -273,6 +273,7 @@ func TestScanCodexSessionFileHidesGuardianApprovalReview(t *testing.T) {
 }
 
 func TestDiscoverReportsMissingCodexSessions(t *testing.T) {
+	t.Setenv("CODEX_HOME", "")
 	t.Setenv("HOME", t.TempDir())
 
 	candidates, err := NewAdapter().Discover(t.Context())
@@ -285,10 +286,11 @@ func TestDiscoverReportsMissingCodexSessions(t *testing.T) {
 }
 
 func TestDiscoverUsesThreadNameAsMetadataKey(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	t.Setenv("HOME", t.TempDir())
+	root := t.TempDir()
+	t.Setenv("CODEX_HOME", root)
 
-	sessionsDir := filepath.Join(home, ".codex", "sessions", "2026", "04", "01")
+	sessionsDir := filepath.Join(root, "sessions", "2026", "04", "01")
 	if err := os.MkdirAll(sessionsDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
@@ -297,7 +299,7 @@ func TestDiscoverUsesThreadNameAsMetadataKey(t *testing.T) {
 	if err := os.WriteFile(sessionPath, []byte("{}\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(session) error = %v", err)
 	}
-	indexPath := filepath.Join(home, ".codex", "session_index.jsonl")
+	indexPath := filepath.Join(root, "session_index.jsonl")
 	if err := os.WriteFile(indexPath, []byte(`{"id":"`+id+`","thread_name":"Updated thread"}`+"\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(index) error = %v", err)
 	}
@@ -318,6 +320,7 @@ func TestDiscoverUsesThreadNameAsMetadataKey(t *testing.T) {
 }
 
 func TestDiscoverSkipsGuardianSessions(t *testing.T) {
+	t.Setenv("CODEX_HOME", "")
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -334,7 +337,7 @@ func TestDiscoverSkipsGuardianSessions(t *testing.T) {
 			"payload": map[string]any{
 				"id":               guardianID,
 				"parent_thread_id": normalID,
-				"thread_source":    "subagent",
+				"thread_source":    "guardian_review",
 				"cwd":              "/tmp/project",
 				"source": map[string]any{
 					"subagent": map[string]any{"other": "guardian"},

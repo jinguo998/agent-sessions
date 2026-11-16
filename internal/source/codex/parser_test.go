@@ -8,6 +8,48 @@ import (
 	"testing"
 )
 
+func TestModernRolloutMessagesAndToolOutputs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "modern.jsonl")
+	data := strings.Join([]string{
+		`{"timestamp":"2026-11-16T00:00:00Z","type":"event_msg","payload":{"type":"item_completed","item":{"type":"UserMessage","client_id":"client-1","content":[{"type":"text","text":"Find the regression"},{"type":"local_image","path":"/tmp/attachment.png"}]}}}`,
+		`{"timestamp":"2026-11-16T00:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Find the regression"}]}}`,
+		`{"timestamp":"2026-11-16T00:00:01Z","type":"event_msg","payload":{"type":"item_completed","item":{"type":"UserMessage","client_id":"client-2","content":[{"type":"local_image","path":"/tmp/attachment2.png"}]}}}`,
+		`{"timestamp":"2026-11-16T00:00:02Z","type":"response_item","payload":{"type":"custom_tool_call","name":"probe","input":"data"}}`,
+		`{"timestamp":"2026-11-16T00:00:03Z","type":"response_item","payload":{"type":"custom_tool_call_output","output":[{"type":"input_text","text":"Probe result"},{"type":"input_image","image_url":"data:image/png;base64,TEST"}]}}`,
+		`{"timestamp":"2026-11-16T00:00:04Z","type":"event_msg","payload":{"type":"thread_goal_updated","goal":{"objective":"Verify the fix","status":"active"}}}`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	scanned, err := ScanCodexSessionFile(path, int64(len(data)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := scanned.Session; got.MsgCount != 2 || got.ToolCount != 1 ||
+		got.FirstMsg != "Find the regression [Image]" || got.LastMsg != "[Image]" {
+		t.Fatalf("unexpected session metadata: %+v", got)
+	}
+	if !strings.Contains(strings.Join(scanned.SearchParts, " "), "Find the regression") {
+		t.Fatal("user text missing from search")
+	}
+
+	for _, tail := range []bool{false, true} {
+		turns, err := ParseCodexMessages(path, true)
+		if tail {
+			turns, err = ParseCodexMessagesTail(path, true, 10, 200)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(turns) != 5 || turns[0].Text != "Find the regression\n[Image]" ||
+			turns[1].Text != "[Image]" || turns[3].Text != "Probe result\n[Image]" ||
+			turns[4].Role != "event" || turns[4].Text != "Goal (active) · Verify the fix" {
+			t.Fatalf("unexpected preview (tail=%v): %+v", tail, turns)
+		}
+	}
+}
+
 func TestParseCodexMessages(t *testing.T) {
 	path := filepath.Join("..", "..", "..", "testdata", "codex", "basic_session.jsonl")
 	msgs, err := ParseCodexMessages(path, false)

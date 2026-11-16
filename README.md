@@ -100,7 +100,7 @@ Claude uses fast resume by default (`--dangerously-skip-permissions`). Codex and
 | `r` | Resume this session with the source default permission mode |
 | `R` | Resume this session safely |
 | `n` | Fork this session |
-| `v` | Toggle verbose mode (full tool content) |
+| `v` | Toggle verbose mode (tool results and Claude subagent transcripts) |
 | `m` | Toggle Markdown rendering / raw text |
 | `Esc` / `q` / `p` | Back to list |
 

@@ -18,7 +18,7 @@ type Adapter struct {
 }
 
 func NewAdapter() Adapter {
-	return Adapter{runner: cliRunner{}}
+	return Adapter{runner: sqliteRunner{}}
 }
 
 func (a Adapter) Source() domain.Source {
@@ -30,8 +30,16 @@ func (a Adapter) Discover(ctx context.Context) ([]source.Candidate, error) {
 	if err != nil {
 		return nil, err
 	}
+	schema, err := a.schema(ctx, dbPath)
+	if err != nil {
+		return nil, err
+	}
+	query := discoverSQL()
+	if schema == schemaV2 {
+		query = discoverSQLV2
+	}
 	var rows []sessionRow
-	if err := a.dbQuery(ctx, discoverSQL(), &rows); err != nil {
+	if err := a.dbQuery(ctx, dbPath, query, &rows); err != nil {
 		return nil, err
 	}
 
@@ -40,14 +48,16 @@ func (a Adapter) Discover(ctx context.Context) ([]source.Candidate, error) {
 		if row.ID == "" {
 			continue
 		}
+		attrs := rowAttributes(dbPath, row)
+		attrs["schema"] = schema
 		candidates = append(candidates, source.Candidate{
 			Source:      domain.SourceOpenCode,
 			Path:        virtualPath(dbPath, row.ID),
 			ProjectDir:  projectDir(row.Directory),
 			FileSize:    int64(row.MessageCount + row.PartCount),
 			ModTime:     millisToTime(maxMillis(row.TimeUpdated, row.MessageUpdated, row.PartUpdated)),
-			MetadataKey: metadataKey(row),
-			Attributes:  rowAttributes(dbPath, row),
+			MetadataKey: schema + ":" + metadataKey(row),
+			Attributes:  attrs,
 		})
 	}
 	return candidates, nil
@@ -66,8 +76,13 @@ func (a Adapter) ScanFile(ctx context.Context, candidate source.Candidate) (sour
 		dbPath = dbPathFromVirtualPath(candidate.Path)
 	}
 
-	texts, err := a.userTexts(ctx, row.ID)
-	if err != nil {
+	schema := candidate.Attributes["schema"]
+	query := userTextsSQL(row.ID)
+	if schema == schemaV2 {
+		query = userTextsSQLV2(row.ID)
+	}
+	var texts []userTextRow
+	if err := a.dbQuery(ctx, dbPath, query, &texts); err != nil {
 		return source.ScannedSession{}, err
 	}
 	allUserMsgs := make([]string, 0, len(texts))
@@ -105,6 +120,7 @@ func (a Adapter) ScanFile(ctx context.Context, candidate source.Candidate) (sour
 	if dbPath != "" {
 		attrs["db_path"] = dbPath
 	}
+	attrs["schema"] = schema
 
 	searchParts := append([]string{}, allUserMsgs...)
 	searchParts = append(searchParts, row.Title)
@@ -135,26 +151,25 @@ func (a Adapter) ScanFile(ctx context.Context, candidate source.Candidate) (sour
 	}, nil
 }
 
-func (a Adapter) userTexts(ctx context.Context, sessionID string) ([]userTextRow, error) {
-	var rows []userTextRow
-	if err := a.dbQuery(ctx, userTextsSQL(sessionID), &rows); err != nil {
-		return nil, err
-	}
-	return rows, nil
-}
-
 func (a Adapter) dbPath(ctx context.Context) (string, error) {
 	if a.runner == nil {
-		a.runner = cliRunner{}
+		a.runner = sqliteRunner{}
 	}
 	return a.runner.DBPath(ctx)
 }
 
-func (a Adapter) dbQuery(ctx context.Context, sql string, dest any) error {
+func (a Adapter) dbQuery(ctx context.Context, dbPath, sql string, dest any) error {
 	if a.runner == nil {
-		a.runner = cliRunner{}
+		a.runner = sqliteRunner{}
 	}
-	return a.runner.Query(ctx, sql, dest)
+	if dbPath == "" {
+		var err error
+		dbPath, err = a.runner.DBPath(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return a.runner.Query(ctx, dbPath, sql, dest)
 }
 
 func discoverSQL() string {

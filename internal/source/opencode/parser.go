@@ -34,12 +34,26 @@ func (a Adapter) preview(ctx context.Context, sess domain.Session, verbose bool,
 	if sessionID == "" {
 		return nil, fmt.Errorf("opencode session id is empty")
 	}
+	dbPath := dbPathFromVirtualPath(sess.FilePath)
+	if dbPath == "" {
+		dbPath = sess.Attributes["db_path"]
+	}
+	schema := sess.Attributes["schema"]
+	if schema == "" {
+		var err error
+		schema, err = a.schema(ctx, dbPath)
+		if err != nil {
+			return nil, err
+		}
+	}
 	var rows []previewRow
 	query := previewSQL(sessionID)
-	if messageLimit > 0 {
+	if schema == schemaV2 {
+		query = previewSQLV2(sessionID, messageLimit)
+	} else if messageLimit > 0 {
 		query = previewTailSQL(sessionID, messageLimit)
 	}
-	if err := a.dbQuery(ctx, query, &rows); err != nil {
+	if err := a.dbQuery(ctx, dbPath, query, &rows); err != nil {
 		return nil, err
 	}
 	return rowsToTurns(rows, verbose), nil
@@ -83,37 +97,40 @@ order by m.time_created, m.id, p.time_created, p.id`
 func rowsToTurns(rows []previewRow, verbose bool) []domain.ConversationTurn {
 	var turns []domain.ConversationTurn
 	for _, row := range rows {
-		if len(row.PartData) == 0 || string(row.PartData) == "null" {
+		if row.MessageData != "" {
+			turns = appendV2Message(turns, row, row.MessageData, verbose)
 			continue
 		}
 		part, ok := decodePartData(row.PartData)
-		if !ok {
-			continue
+		if ok {
+			turns = appendPreviewPart(turns, row, part, verbose)
 		}
-		ts := millisToTime(row.PartTime)
-		if ts.IsZero() {
-			ts = millisToTime(row.MessageTime)
+	}
+	return turns
+}
+
+func appendPreviewPart(turns []domain.ConversationTurn, row previewRow, part partData, verbose bool) []domain.ConversationTurn {
+	ts := millisToTime(row.PartTime)
+	if ts.IsZero() {
+		ts = millisToTime(row.MessageTime)
+	}
+	switch part.Type {
+	case "text":
+		text := strings.TrimSpace(part.Text)
+		if text != "" && (row.Role == "user" || row.Role == "assistant") {
+			turns = append(turns, domain.ConversationTurn{Role: row.Role, Text: text, Timestamp: ts})
 		}
-		switch part.Type {
-		case "text":
-			text := strings.TrimSpace(part.Text)
-			if text != "" && (row.Role == "user" || row.Role == "assistant") {
-				turns = append(turns, domain.ConversationTurn{Role: row.Role, Text: text, Timestamp: ts})
-			}
-		case "tool":
-			turns = append(turns, domain.ConversationTurn{Role: "tool", Text: toolSummary(part), Timestamp: ts})
-			if verbose {
-				if output := toolOutput(part); output != "" {
-					turns = append(turns, domain.ConversationTurn{Role: "tool_result", Text: output, Timestamp: ts})
-				}
-			}
-		case "patch":
-			turns = append(turns, domain.ConversationTurn{Role: "tool", Text: patchSummary(part), Timestamp: ts})
-		case "file":
-			if text := fileSummary(part); text != "" {
-				turns = append(turns, domain.ConversationTurn{Role: "tool", Text: text, Timestamp: ts})
+	case "tool":
+		turns = append(turns, domain.ConversationTurn{Role: "tool", Text: toolSummary(part), Timestamp: ts})
+		if verbose {
+			if output := toolOutput(part); output != "" {
+				turns = append(turns, domain.ConversationTurn{Role: "tool_result", Text: output, Timestamp: ts})
 			}
 		}
+	case "patch":
+		turns = append(turns, domain.ConversationTurn{Role: "tool", Text: patchSummary(part), Timestamp: ts})
+	case "file":
+		turns = append(turns, domain.ConversationTurn{Role: "tool", Text: fileSummary(part), Timestamp: ts})
 	}
 	return turns
 }
@@ -183,10 +200,25 @@ func toolInputDetail(name string, raw json.RawMessage) string {
 
 func toolOutput(part partData) string {
 	var state toolState
-	if len(part.State) == 0 || json.Unmarshal(part.State, &state) != nil || len(state.Output) == 0 {
+	if json.Unmarshal(part.State, &state) != nil {
 		return ""
 	}
-	return strings.TrimSpace(jsonTextValue(state.Output))
+	if text := strings.TrimSpace(jsonTextValue(state.Output)); text != "" {
+		return text
+	}
+	if state.Error != nil && state.Error.Message != "" {
+		return state.Error.Message
+	}
+	var parts []string
+	for _, block := range state.Content {
+		switch block.Type {
+		case "text":
+			parts = append(parts, block.Text)
+		case "image":
+			parts = append(parts, "[Image]")
+		}
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
 func inputDetail(raw json.RawMessage) string {

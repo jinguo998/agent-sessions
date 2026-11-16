@@ -189,6 +189,19 @@ func TestFormatPreviewRendersApprovalDistinctFromTool(t *testing.T) {
 	}
 }
 
+func TestFormatPreviewRendersGoalAndSubagent(t *testing.T) {
+	result := formatPreviewWithColors([]domain.ConversationTurn{
+		{Role: "event", Text: "Goal (complete) · Verify the change"},
+		{Role: "agent", Text: "Subagent (Explore) · Assistant\nChecks passed"},
+	}, 80, false, false)
+	got := stripANSI(result.content)
+	for _, text := range []string{"Goal (complete) · Verify the change", "  Subagent (Explore) · Assistant", "  Checks passed"} {
+		if !strings.Contains(got, text) {
+			t.Fatalf("preview missing %q in %q", text, got)
+		}
+	}
+}
+
 func TestCompactSidePreviewMessagesTruncatesLongText(t *testing.T) {
 	longText := strings.Repeat("x", sidePreviewMaxTextRunes+100)
 	got := compactSidePreviewMessages([]domain.ConversationTurn{

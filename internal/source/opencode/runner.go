@@ -1,49 +1,76 @@
 package opencode
 
 import (
-	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 type dbRunner interface {
 	DBPath(context.Context) (string, error)
-	Query(context.Context, string, any) error
+	Query(context.Context, string, string, any) error
 }
 
-type cliRunner struct{}
+type sqliteRunner struct{}
 
-func (cliRunner) DBPath(ctx context.Context) (string, error) {
+func (sqliteRunner) DBPath(ctx context.Context) (string, error) {
 	_ = ctx
 	return resolveDBPath()
 }
 
-func (cliRunner) Query(ctx context.Context, sql string, dest any) error {
-	dbPath, err := resolveDBPath()
+func (sqliteRunner) Query(ctx context.Context, dbPath, query string, dest any) error {
+	absolute, err := filepath.Abs(dbPath)
 	if err != nil {
 		return err
 	}
-	return queryWithSQLite(ctx, dbPath, sql, dest)
-}
-
-func queryWithSQLite(ctx context.Context, dbPath, sql string, dest any) error {
-	cmd := exec.CommandContext(ctx, "sqlite3", "-readonly", "-cmd", ".timeout 5000", "-json", dbPath, sql)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
+	uri := url.URL{Scheme: "file", Path: filepath.ToSlash(absolute), RawQuery: "mode=ro&_pragma=busy_timeout(5000)"}
+	db, err := sql.Open("sqlite3", uri.String())
 	if err != nil {
-		return fmt.Errorf("sqlite3 query: %w: %s", err, strings.TrimSpace(stderr.String()))
+		return err
 	}
-	if err := json.Unmarshal(out, dest); err != nil {
-		return fmt.Errorf("decode sqlite3 query output: %w", err)
+	defer db.Close()
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return fmt.Errorf("opencode database query: %w", err)
 	}
-	return nil
+	defer rows.Close()
+	columns, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+	values := make([]any, len(columns))
+	targets := make([]any, len(columns))
+	for i := range values {
+		targets[i] = &values[i]
+	}
+	result := make([]map[string]any, 0)
+	for rows.Next() {
+		if err := rows.Scan(targets...); err != nil {
+			return err
+		}
+		row := make(map[string]any, len(columns))
+		for i, name := range columns {
+			row[name] = values[i]
+		}
+		result = append(result, row)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, dest)
 }
 
 func resolveDBPath() (string, error) {
