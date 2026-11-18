@@ -19,6 +19,7 @@ type Message = domain.ConversationTurn
 type contentBlock struct {
 	Type  string          `json:"type"`
 	Text  string          `json:"text"`
+	ID    string          `json:"id"`
 	Name  string          `json:"name"`  // tool_use: tool name
 	Input json.RawMessage `json:"input"` // tool_use: tool input
 }
@@ -300,6 +301,7 @@ func suffixIfSet(text, suffix string) string {
 // toolResultBlock represents a tool_result entry in user message content arrays.
 type toolResultBlock struct {
 	Type      string          `json:"type"`
+	Text      string          `json:"text"`
 	ToolUseID string          `json:"tool_use_id"`
 	Content   json.RawMessage `json:"content"`
 	IsError   bool            `json:"is_error"`
@@ -319,8 +321,15 @@ func extractToolResultText(b toolResultBlock) string {
 	if json.Unmarshal(b.Content, &blocks) == nil {
 		var parts []string
 		for _, bl := range blocks {
-			if bl.Type == "text" && strings.TrimSpace(bl.Text) != "" {
-				parts = append(parts, strings.TrimSpace(bl.Text))
+			switch bl.Type {
+			case "text":
+				if text := strings.TrimSpace(bl.Text); text != "" {
+					parts = append(parts, text)
+				}
+			case "image":
+				parts = append(parts, "[Image]")
+			case "document":
+				parts = append(parts, "[Document]")
 			}
 		}
 		return strings.Join(parts, "\n")
@@ -337,6 +346,10 @@ func ParseSessionMessages(path string, full ...bool) ([]Message, error) {
 }
 
 func parseMessages(path string, verbose bool) ([]Message, error) {
+	return parseTranscript(path, verbose, claudeTranscript{agents: findSubagents(path)}.appendLine)
+}
+
+func parseTranscript(path string, verbose bool, appendLine source.AppendLineTurnsFunc) ([]Message, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -349,7 +362,7 @@ func parseMessages(path string, verbose bool) ([]Message, error) {
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024) // 10MB max line
 
 	for scanner.Scan() {
-		messages = appendSessionLineMessages(messages, scanner.Bytes(), verbose)
+		messages = appendLine(messages, scanner.Bytes(), verbose)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -363,7 +376,8 @@ func parseMessages(path string, verbose bool) ([]Message, error) {
 // ParseSessionMessagesTail returns only recent displayable messages by reading
 // from the end of a session file. It is intended for small side previews.
 func ParseSessionMessagesTail(path string, verbose bool, maxMessages int, maxBytes int64) ([]Message, error) {
-	return source.ParseTailMessages(path, verbose, maxMessages, maxBytes, appendSessionLineMessages)
+	transcript := claudeTranscript{agents: findSubagents(path)}
+	return source.ParseTailMessages(path, verbose, maxMessages, maxBytes, transcript.appendLine)
 }
 
 func (a Adapter) ParsePreview(ctx context.Context, sess domain.Session, opts source.PreviewOptions) ([]domain.ConversationTurn, error) {
@@ -376,13 +390,9 @@ func (a Adapter) ParsePreviewTail(ctx context.Context, sess domain.Session, opts
 	return ParseSessionMessagesTail(sess.FilePath, opts.Verbose, opts.MaxMessages, opts.MaxBytes)
 }
 
-func appendSessionLineMessages(messages []Message, raw []byte, verbose bool) []Message {
+func (t claudeTranscript) appendLine(messages []Message, raw []byte, verbose bool) []Message {
 	var line jsonLine
 	if err := json.Unmarshal(raw, &line); err != nil {
-		return messages
-	}
-
-	if line.Message == nil {
 		return messages
 	}
 
@@ -391,47 +401,64 @@ func appendSessionLineMessages(messages []Message, raw []byte, verbose bool) []M
 		ts, _ = time.Parse(time.RFC3339Nano, line.Timestamp)
 	}
 
+	if line.Type == "attachment" && line.Attachment != nil && line.Attachment.Type == "goal_status" && !line.IsSidechain {
+		goal := line.Attachment
+		text := "Goal (active)"
+		if goal.Met {
+			text = "Goal (complete)"
+		}
+		if goal.Condition != "" {
+			text += " · " + goal.Condition
+		}
+		if goal.Reason != "" {
+			text += "\n" + goal.Reason
+		}
+		return append(messages, Message{Role: "event", Text: text, Timestamp: ts})
+	}
+
+	if line.Message == nil {
+		return messages
+	}
+
+	var turns []Message
+	turns = appendClaudeMessage(turns, line, ts, verbose, func(target []Message, toolID string, timestamp time.Time) []Message {
+		return t.appendSubagent(target, toolID, timestamp, verbose)
+	})
+	if line.IsSidechain && !t.agentTranscript {
+		label := "Subagent"
+		if line.AgentID != "" {
+			label += " " + line.AgentID
+		}
+		for i := range turns {
+			if turns[i].Role != "agent" && turns[i].Role != "event" {
+				turns[i] = agentTurn(turns[i], label)
+			}
+		}
+	}
+	return append(messages, turns...)
+}
+
+func appendClaudeMessage(messages []Message, line jsonLine, ts time.Time, verbose bool, appendSubagent func([]Message, string, time.Time) []Message) []Message {
 	switch line.Type {
 	case "user":
 		if line.IsMeta {
 			return messages
 		}
-		// User content can be a plain string or an array (tool_result blocks)
-		var content string
-		if err := json.Unmarshal(line.Message.Content, &content); err != nil {
-			// Try as array of content blocks (tool_result messages)
+		if content := claudeUserText(line.Message.Content); content != "" {
+			messages = append(messages, Message{Role: "user", Text: content, Timestamp: ts})
+		}
+		if verbose {
 			var blocks []toolResultBlock
 			if json.Unmarshal(line.Message.Content, &blocks) == nil {
-				if verbose {
-					for _, b := range blocks {
-						if b.Type == "tool_result" {
-							text := extractToolResultText(b)
-							if text != "" {
-								messages = append(messages, Message{
-									Role:      "tool_result",
-									Text:      text,
-									Timestamp: ts,
-								})
-							}
+				for _, b := range blocks {
+					if b.Type == "tool_result" {
+						if text := extractToolResultText(b); text != "" {
+							messages = append(messages, Message{Role: "tool_result", Text: text, Timestamp: ts})
 						}
 					}
 				}
-				return messages
 			}
-			return messages
 		}
-		content = strings.TrimSpace(content)
-		if content == "" || isSystemContent(content) {
-			return messages
-		}
-		if strings.HasPrefix(content, "<command-") {
-			content = extractCommandArgs(content)
-		}
-		content = strings.TrimSpace(content)
-		if content == "" {
-			return messages
-		}
-		messages = append(messages, Message{Role: "user", Text: content, Timestamp: ts})
 
 	case "assistant":
 		var blocks []contentBlock
@@ -446,6 +473,9 @@ func appendSessionLineMessages(messages []Message, raw []byte, verbose bool) []M
 						Text:      toolInfo(b.Name, b.Input),
 						Timestamp: ts,
 					})
+					if appendSubagent != nil && b.ID != "" {
+						messages = appendSubagent(messages, b.ID, ts)
+					}
 				}
 			}
 			if len(texts) > 0 {

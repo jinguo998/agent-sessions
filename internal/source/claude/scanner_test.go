@@ -73,6 +73,7 @@ func TestScanSessionFileCountsClaudeUsageOncePerMessage(t *testing.T) {
 }
 
 func TestDiscoverReportsMissingClaudeProjects(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
 	t.Setenv("HOME", t.TempDir())
 
 	candidates, err := NewAdapter().Discover(t.Context())

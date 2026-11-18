@@ -51,22 +51,32 @@ type CodexResponseItem struct {
 	Name    string          `json:"name"`      // function_call / custom_tool_call: tool name
 	Args    string          `json:"arguments"` // function_call: JSON string arguments
 	Input   string          `json:"input"`     // custom_tool_call: input string
-	Output  string          `json:"output"`    // function_call_output / custom_tool_call_output: result string
+	Output  json.RawMessage `json:"output"`    // tool result string or content blocks
 	CallID  string          `json:"call_id"`
 	Action  json.RawMessage `json:"action"` // web_search_call: {type, query, queries}
 }
 
 // CodexContentBlock represents a block in response_item message content arrays.
 type CodexContentBlock struct {
-	Type string `json:"type"` // "output_text", "input_text", "input_image"
+	Type string `json:"type"`
 	Text string `json:"text"`
 }
 
 // CodexEventMsg represents an event_msg payload.
 type CodexEventMsg struct {
-	Type    string          `json:"type"` // "user_message", "agent_message", "token_count", etc.
-	Message string          `json:"message"`
-	Info    json.RawMessage `json:"info"` // for token_count events (may be null)
+	Type        string            `json:"type"` // "user_message", "agent_message", "token_count", etc.
+	Message     string            `json:"message"`
+	Info        json.RawMessage   `json:"info"` // for token_count events (may be null)
+	Images      []json.RawMessage `json:"images"`
+	LocalImages []json.RawMessage `json:"local_images"`
+	Item        *struct {
+		Type    string          `json:"type"`
+		Content json.RawMessage `json:"content"`
+	} `json:"item"`
+	Goal *struct {
+		Objective string `json:"objective"`
+		Status    string `json:"status"`
+	} `json:"goal"`
 }
 
 // CodexTokenInfo holds token usage from a token_count event.

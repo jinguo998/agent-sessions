@@ -74,18 +74,21 @@ func appendCodexLineMessages(messages []Message, raw []byte, verbose bool) []Mes
 		if json.Unmarshal(line.Payload, &evt) != nil {
 			return messages
 		}
-		switch evt.Type {
-		case "user_message":
-			text := strings.TrimSpace(evt.Message)
-			text = stripTaskPrefix(text)
-			if summary, ok := codexApprovalRequestSummary(text); ok {
-				text = summary
+		if text, user := evt.userMessage(); user && text != "" {
+			messages = append(messages, Message{Role: "user", Text: text, Timestamp: ts})
+		}
+		if evt.Type == "thread_goal_updated" {
+			text := "Goal cleared"
+			if evt.Goal != nil {
+				text = "Goal"
+				if evt.Goal.Status != "" {
+					text += " (" + evt.Goal.Status + ")"
+				}
+				if evt.Goal.Objective != "" {
+					text += " · " + evt.Goal.Objective
+				}
 			}
-			if text != "" {
-				messages = append(messages, Message{Role: "user", Text: text, Timestamp: ts})
-			}
-			// agent_message intentionally skipped — same text is already captured
-			// via response_item/message with role "assistant", avoiding duplicates.
+			messages = append(messages, Message{Role: "event", Text: text, Timestamp: ts})
 		}
 
 	case "response_item":
@@ -120,9 +123,9 @@ func appendCodexLineMessages(messages []Message, raw []byte, verbose bool) []Mes
 			summary := codexToolInfo(item.Name, item.Args)
 			messages = append(messages, Message{Role: "tool", Text: summary, Timestamp: ts})
 
-		case "function_call_output":
+		case "function_call_output", "custom_tool_call_output":
 			if verbose {
-				text := strings.TrimSpace(item.Output)
+				text := extractCodexOutputText(item.Output)
 				if text == "" {
 					text = extractCodexOutputText(item.Content)
 				}
@@ -139,16 +142,6 @@ func appendCodexLineMessages(messages []Message, raw []byte, verbose bool) []Mes
 			summary := codexCustomToolInfo(item.Name, item.Input)
 			messages = append(messages, Message{Role: "tool", Text: summary, Timestamp: ts})
 
-		case "custom_tool_call_output":
-			if verbose {
-				text := strings.TrimSpace(item.Output)
-				if text == "" {
-					text = extractCodexOutputText(item.Content)
-				}
-				if text != "" {
-					messages = append(messages, Message{Role: "tool_result", Text: text, Timestamp: ts})
-				}
-			}
 		}
 	}
 	return messages
@@ -172,12 +165,47 @@ func extractCodexMessageText(raw json.RawMessage) string {
 	return ""
 }
 
+func (evt CodexEventMsg) userMessage() (string, bool) {
+	var text string
+	switch {
+	case evt.Type == "user_message":
+		text = strings.TrimSpace(evt.Message)
+		for range max(len(evt.Images), len(evt.LocalImages)) {
+			text = strings.TrimSpace(text + "\n[Image]")
+		}
+	case evt.Type == "item_completed" && evt.Item != nil && evt.Item.Type == "UserMessage":
+		text = extractCodexOutputText(evt.Item.Content)
+	default:
+		return "", false
+	}
+	text = stripTaskPrefix(text)
+	if summary, ok := codexApprovalRequestSummary(text); ok {
+		text = summary
+	}
+	return text, true
+}
+
 func extractCodexOutputText(raw json.RawMessage) string {
 	var s string
 	if json.Unmarshal(raw, &s) == nil {
 		return strings.TrimSpace(s)
 	}
-	return ""
+	var blocks []CodexContentBlock
+	if json.Unmarshal(raw, &blocks) != nil {
+		return ""
+	}
+	var parts []string
+	for _, block := range blocks {
+		switch block.Type {
+		case "text", "Text", "input_text", "output_text":
+			if text := strings.TrimSpace(block.Text); text != "" {
+				parts = append(parts, text)
+			}
+		case "local_image", "image", "input_image", "output_image":
+			parts = append(parts, "[Image]")
+		}
+	}
+	return strings.Join(parts, "\n")
 }
 
 func mergeCodexApprovalEvents(parentPath string, messages []Message, maxMessages int) []Message {
@@ -374,7 +402,8 @@ func readCodexSessionMeta(path string) (CodexSessionMeta, bool) {
 }
 
 func codexMetaIsGuardian(meta CodexSessionMeta) bool {
-	return meta.ThreadSource == "subagent" && CodexSourceSubagentOther(meta.Source) == "guardian"
+	return meta.ThreadSource == "guardian_review" ||
+		(meta.ThreadSource == "subagent" && CodexSourceSubagentOther(meta.Source) == "guardian")
 }
 
 func codexSessionsRoot(path string) string {

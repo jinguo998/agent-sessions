@@ -24,8 +24,7 @@ func (u TokenUsage) Total() int {
 	return u.Input + u.Output
 }
 
-// ConversationTurn is one displayable user, assistant, tool, tool-result, or
-// approval event in a session preview.
+// ConversationTurn is one displayable message, tool action, or event in a session preview.
 type ConversationTurn struct {
 	Role      string
 	Text      string

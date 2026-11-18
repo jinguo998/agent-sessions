@@ -23,7 +23,7 @@ func (f fakeRunner) DBPath(context.Context) (string, error) {
 	return f.dbPath, nil
 }
 
-func (f fakeRunner) Query(_ context.Context, sql string, dest any) error {
+func (f fakeRunner) Query(_ context.Context, _ string, sql string, dest any) error {
 	data := any(nil)
 	switch {
 	case strings.Contains(sql, "from session s"):

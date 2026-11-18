@@ -9,10 +9,20 @@ import (
 
 // jsonLine represents the minimal fields needed from each Claude JSONL line.
 type jsonLine struct {
-	Type      string `json:"type"`
-	IsMeta    bool   `json:"isMeta"`
-	Timestamp string `json:"timestamp"`
-	Message   *struct {
+	Type        string `json:"type"`
+	IsMeta      bool   `json:"isMeta"`
+	IsSidechain bool   `json:"isSidechain"`
+	AgentID     string `json:"agentId"`
+	Timestamp   string `json:"timestamp"`
+	CustomTitle string `json:"customTitle"`
+	AITitle     string `json:"aiTitle"`
+	Attachment  *struct {
+		Type      string `json:"type"`
+		Condition string `json:"condition"`
+		Met       bool   `json:"met"`
+		Reason    string `json:"reason"`
+	} `json:"attachment"`
+	Message *struct {
 		ID      string          `json:"id"`
 		Role    string          `json:"role"`
 		Content json.RawMessage `json:"content"`
@@ -58,6 +68,42 @@ func extractCommandArgs(content string) string {
 		return content[start:]
 	}
 	return content[start : start+end]
+}
+
+func claudeUserText(raw json.RawMessage) string {
+	var text string
+	if json.Unmarshal(raw, &text) == nil {
+		return cleanUserText(text)
+	}
+	var blocks []toolResultBlock
+	if json.Unmarshal(raw, &blocks) != nil {
+		return ""
+	}
+	var parts []string
+	for _, block := range blocks {
+		switch block.Type {
+		case "text":
+			if text := cleanUserText(block.Text); text != "" {
+				parts = append(parts, text)
+			}
+		case "image":
+			parts = append(parts, "[Image]")
+		case "document":
+			parts = append(parts, "[Document]")
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+func cleanUserText(text string) string {
+	text = strings.TrimSpace(text)
+	if isSystemContent(text) {
+		return ""
+	}
+	if strings.HasPrefix(text, "<command-") {
+		text = extractCommandArgs(text)
+	}
+	return strings.TrimSpace(text)
 }
 
 func decodeProjectDir(encoded string) string {

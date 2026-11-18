@@ -43,20 +43,9 @@ func ScanSessionFile(path, projectDir string, fileSize int64) (source.ScannedSes
 
 	id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 
-	var (
-		firstMsg    string
-		lastMsg     string
-		modelName   string
-		startTime   time.Time
-		lastTime    time.Time
-		msgCount    int
-		toolCount   int
-		tokensIn    int
-		tokensOut   int
-		allUserMsgs []string
-		lastRole    string // track last role to count conversation turns, not events
-	)
-	seenUsageIDs := make(map[string]struct{})
+	var startTime, lastTime time.Time
+	var customTitle, aiTitle string
+	var main, sidechain conversationStats
 
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 10*1024*1024) // 10MB max line, matching parser
@@ -86,97 +75,31 @@ func ScanSessionFile(path, projectDir string, fileSize int64) (source.ScannedSes
 			}
 		}
 
-		// Count conversation turns, not raw events.
-		// Consecutive lines with the same role count as one turn.
-		if line.Type == "user" || line.Type == "assistant" {
-			role := line.Type
-			if role == "user" && line.IsMeta {
-				role = "" // skip meta
-			}
-			if role != "" && role != lastRole {
-				msgCount++
-				lastRole = role
-			}
-		}
-
-		// Extract model name from assistant messages
-		if line.Type == "assistant" && line.Message != nil && line.Message.Model != "" && modelName == "" {
-			m := line.Message.Model
-			switch {
-			case strings.Contains(m, "opus"):
-				modelName = "opus"
-			case strings.Contains(m, "sonnet"):
-				modelName = "sonnet"
-			case strings.Contains(m, "haiku"):
-				modelName = "haiku"
-			default:
-				modelName = m
-			}
-		}
-
-		// Claude Code can write multiple JSONL rows for the same assistant
-		// message id (for example thinking then tool_use). Their usage block is
-		// duplicated, so count each message id once.
-		if line.Type == "assistant" && line.Message != nil && line.Message.Usage != nil {
-			usageID := line.Message.ID
-			shouldCount := true
-			if usageID != "" {
-				if _, ok := seenUsageIDs[usageID]; ok {
-					shouldCount = false
-				} else {
-					seenUsageIDs[usageID] = struct{}{}
-				}
-			}
-			if shouldCount {
-				usage := line.Message.Usage
-				tokensIn += usage.InputTokens + usage.CacheCreationInputTokens + usage.CacheReadInputTokens
-				tokensOut += usage.OutputTokens
-			}
-		}
-
-		// Count tool_use blocks in assistant content
-		if line.Type == "assistant" && line.Message != nil {
-			var items []contentItem
-			if err := json.Unmarshal(line.Message.Content, &items); err == nil {
-				for _, item := range items {
-					if item.Type == "tool_use" {
-						toolCount++
-					}
-				}
-			}
-		}
-
-		// Extract user messages for search, first/last tracking
-		if line.Type == "user" && !line.IsMeta && line.Message != nil {
-			var content string
-			if err := json.Unmarshal(line.Message.Content, &content); err == nil && content != "" {
-				if isSystemContent(content) {
-					continue
-				}
-				if strings.HasPrefix(content, "<command-") {
-					content = extractCommandArgs(content)
-				}
-				content = strings.TrimSpace(content)
-				if content == "" {
-					continue
-				}
-				content = strings.Join(strings.Fields(content), " ")
-				allUserMsgs = append(allUserMsgs, content)
-				truncated := content
-				if len([]rune(truncated)) > 100 {
-					truncated = string([]rune(truncated)[:100])
-				}
-				if firstMsg == "" {
-					firstMsg = truncated
-				}
-				lastMsg = truncated
+		switch line.Type {
+		case "custom-title":
+			customTitle = strings.TrimSpace(line.CustomTitle)
+		case "ai-title":
+			aiTitle = strings.TrimSpace(line.AITitle)
+		case "user", "assistant":
+			if line.IsSidechain {
+				sidechain.add(line)
+			} else {
+				main.add(line)
 			}
 		}
 	}
-	// Log scan errors (e.g. line too long) — don't fail, just use what we got
-	if err := sc.Err(); err != nil {
-		// silent: partial data is better than no data for metadata scanning
-		_ = err
+
+	title := customTitle
+	if title == "" {
+		title = aiTitle
+	}
+	stats := main
+	// Detached agent transcripts can contain only sidechain records.
+	if stats.msgCount == 0 || (len(stats.userMessages) == 0 && stats.model == "" && len(sidechain.userMessages) > 0) {
+		stats = sidechain
+	}
+	if title != "" {
+		stats.userMessages = append(stats.userMessages, title)
 	}
 
 	projectPath := decodeProjectDirCached(projectDir)
@@ -186,28 +109,107 @@ func ScanSessionFile(path, projectDir string, fileSize int64) (source.ScannedSes
 			ID:          id,
 			ProjectDir:  projectDir,
 			ProjectPath: projectPath,
-			FirstMsg:    firstMsg,
-			LastMsg:     lastMsg,
+			Title:       title,
+			FirstMsg:    stats.firstMsg,
+			LastMsg:     stats.lastMsg,
 			StartTime:   startTime,
 			LastTime:    lastTime,
-			MsgCount:    msgCount,
-			ToolCount:   toolCount,
+			MsgCount:    stats.msgCount,
+			ToolCount:   stats.toolCount,
 			FileSize:    fileSize,
 			FilePath:    path,
-			Model:       modelName,
-			TokenUsage:  domain.TokenUsage{Input: tokensIn, Output: tokensOut},
+			Model:       stats.model,
+			TokenUsage:  stats.usage,
 			Source:      domain.SourceClaude,
 		},
-		SearchParts: allUserMsgs,
+		SearchParts: stats.userMessages,
 	}, nil
 }
 
-func discoverSessions(ctx context.Context) ([]source.Candidate, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
+type conversationStats struct {
+	firstMsg     string
+	lastMsg      string
+	lastRole     string
+	model        string
+	msgCount     int
+	toolCount    int
+	usage        domain.TokenUsage
+	userMessages []string
+	seenUsageIDs map[string]struct{}
+}
+
+func (s *conversationStats) add(line jsonLine) {
+	if line.Type == "user" && line.IsMeta {
+		return
 	}
-	baseDir := filepath.Join(home, ".claude", "projects")
+	// Consecutive records with the same role form one conversation turn.
+	if line.Type != s.lastRole {
+		s.msgCount++
+		s.lastRole = line.Type
+	}
+	if line.Message == nil {
+		return
+	}
+	if line.Type == "user" {
+		text := strings.Join(strings.Fields(claudeUserText(line.Message.Content)), " ")
+		if text == "" {
+			return
+		}
+		s.userMessages = append(s.userMessages, text)
+		if runes := []rune(text); len(runes) > 100 {
+			text = string(runes[:100])
+		}
+		if s.firstMsg == "" {
+			s.firstMsg = text
+		}
+		s.lastMsg = text
+		return
+	}
+
+	if s.model == "" {
+		s.model = line.Message.Model
+		for _, name := range []string{"opus", "sonnet", "haiku"} {
+			if strings.Contains(s.model, name) {
+				s.model = name
+				break
+			}
+		}
+	}
+	var blocks []contentItem
+	if json.Unmarshal(line.Message.Content, &blocks) == nil {
+		for _, block := range blocks {
+			if block.Type == "tool_use" {
+				s.toolCount++
+			}
+		}
+	}
+	// Thinking, text and tool records can repeat the usage for one message ID.
+	if usage := line.Message.Usage; usage != nil {
+		id := line.Message.ID
+		if _, seen := s.seenUsageIDs[id]; seen {
+			return
+		}
+		if id != "" {
+			if s.seenUsageIDs == nil {
+				s.seenUsageIDs = make(map[string]struct{})
+			}
+			s.seenUsageIDs[id] = struct{}{}
+		}
+		s.usage.Input += usage.InputTokens + usage.CacheCreationInputTokens + usage.CacheReadInputTokens
+		s.usage.Output += usage.OutputTokens
+	}
+}
+
+func discoverSessions(ctx context.Context) ([]source.Candidate, error) {
+	root := os.Getenv("CLAUDE_CONFIG_DIR")
+	if root == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		root = filepath.Join(home, ".claude")
+	}
+	baseDir := filepath.Join(root, "projects")
 
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
@@ -246,11 +248,12 @@ func discoverSessions(ctx context.Context) ([]source.Candidate, error) {
 				continue
 			}
 			candidates = append(candidates, source.Candidate{
-				Source:     domain.SourceClaude,
-				Path:       filePath,
-				ProjectDir: projDir,
-				FileSize:   info.Size(),
-				ModTime:    info.ModTime(),
+				Source:      domain.SourceClaude,
+				Path:        filePath,
+				ProjectDir:  projDir,
+				MetadataKey: "claude-meta-v2",
+				FileSize:    info.Size(),
+				ModTime:     info.ModTime(),
 			})
 		}
 	}

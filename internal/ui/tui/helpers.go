@@ -371,6 +371,18 @@ func formatPreviewWithColors(msgs []domain.ConversationTurn, width int, verbose 
 			b.WriteString(approvalStyle.Render(approvalText))
 			b.WriteString("\n")
 			lineCount++
+		case "event":
+			text := wrapText(msg.Text, width)
+			b.WriteString(statsMutedStyle.Render(text))
+			b.WriteString("\n")
+			lineCount += countLines(text) + 1
+		case "agent":
+			text := wrapText(msg.Text, width-2)
+			for _, line := range strings.Split(text, "\n") {
+				b.WriteString(toolStyle.Render("  " + line))
+				b.WriteString("\n")
+				lineCount++
+			}
 		case "assistant":
 			if b.Len() > 0 {
 				b.WriteString("\n")
