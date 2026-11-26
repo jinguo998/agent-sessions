@@ -156,9 +156,9 @@ func (m Model) renderHelp() string {
 			{"Enter/p", "Preview session"},
 		}},
 		{"Actions", [][2]string{
-			{"r", "Resume session"},
+			{"r", "Resume CLI or open IDE"},
 			{"R", "Resume safely"},
-			{"n", "Fork session"},
+			{"n", "Fork supported session"},
 			{"d", "Archive session"},
 			{"y", "Copy session ID"},
 			{"O", "Open JSONL in $EDITOR"},

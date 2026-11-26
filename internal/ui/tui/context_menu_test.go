@@ -149,6 +149,17 @@ func TestContextMenuHidesArchiveForUnsupportedSource(t *testing.T) {
 	}
 }
 
+func TestAntigravityContextActions(t *testing.T) {
+	for _, kind := range []session.Source{session.SourceAntigravityIDE, session.SourceAntigravityCLI} {
+		view := stripANSI(NewContextMenuModel().Open(session.Session{ID: "history", Source: kind}, 0, 0).View())
+		if strings.Contains(view, "Fork") || strings.Contains(view, "Archive") ||
+			strings.Contains(view, "Open IDE") != (kind == session.SourceAntigravityIDE) ||
+			strings.Contains(view, "Resume") != (kind == session.SourceAntigravityCLI) {
+			t.Fatalf("%s menu %q", kind, view)
+		}
+	}
+}
+
 func TestContextMenuOverlayOnPadsAndClamps(t *testing.T) {
 	baseLines := []string{
 		strings.Repeat(".", 50),

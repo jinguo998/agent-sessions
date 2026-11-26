@@ -3,7 +3,7 @@
 [![CI](https://github.com/jinguo998/claude-sessions/actions/workflows/go.yml/badge.svg)](https://github.com/jinguo998/claude-sessions/actions/workflows/go.yml)
 [![CodeQL](https://github.com/jinguo998/claude-sessions/actions/workflows/codeql.yml/badge.svg)](https://github.com/jinguo998/claude-sessions/actions/workflows/codeql.yml)
 
-TUI dashboard for browsing, previewing, searching, and resuming Claude Code, Codex CLI, and OpenCode sessions across all projects.
+Browse, preview, search, and reopen Claude Code, Codex CLI, OpenCode, Antigravity IDE, and Antigravity CLI sessions across projects from a terminal dashboard.
 
 ## Install
 
@@ -70,10 +70,10 @@ claude-sessions
 |-----|--------|
 | `↑/↓` `j/k` | Navigate |
 | `Enter` / `p` | Preview session |
-| `r` | Resume session with the source default permission mode |
+| `r` | Resume the selected CLI session, or open the Antigravity IDE workspace |
 | `R` | Resume session safely |
 | `Ctrl+r` | Refresh session list |
-| `n` | Fork session (new conversation from here) |
+| `n` | Fork a Claude, Codex, or OpenCode session |
 | `d` | Archive session to trash |
 | `m` | Context menu |
 | `t` | Open stats for the current filtered session set |
@@ -81,11 +81,21 @@ claude-sessions
 | `/` | Search sessions |
 | `s` | Cycle sort (Recent / Project / Messages / Tools / Tokens) |
 | `f` | Open project filter |
-| `F` | Cycle source filter (All / Claude / Codex / OpenCode) |
+| `F` | Cycle through all sources, including separate Antigravity IDE and CLI filters |
 | `M` | Toggle mouse mode for terminal text selection |
 | `q` / `Esc` | Quit |
 
 Claude uses fast resume by default (`--dangerously-skip-permissions`). Codex and OpenCode use safe resume by default.
+
+### Antigravity
+
+| Source | Local history under `~/.gemini/` | Pressing `r` |
+|--------|--------------------------------|--------------|
+| Antigravity CLI | `antigravity-cli/` | Resumes the exact conversation with `agy --conversation <id>` |
+| Antigravity IDE | `antigravity-ide/` | Opens the workspace with `antigravity-ide`. Select the displayed title or ID in conversation history. |
+| Antigravity App and earlier IDE versions | `antigravity/` | Opens `antigravity`. These conversations appear under the IDE filter. |
+
+Sessions appear when Antigravity has saved a local transcript or indexed message text. Verbose transcript preview includes tool arguments and results. On macOS, the dashboard can also open the installed desktop application by name. In a resumed CLI conversation, use `/fork` to create a branch. [Google's CLI command reference](https://antigravity.google/docs/cli/reference/)
 
 ### Preview View
 
@@ -99,7 +109,7 @@ Claude uses fast resume by default (`--dangerously-skip-permissions`). Codex and
 | `n` (in search) / `N` | Next / Previous match |
 | `r` | Resume this session with the source default permission mode |
 | `R` | Resume this session safely |
-| `n` | Fork this session |
+| `n` | Fork a Claude, Codex, or OpenCode session |
 | `v` | Toggle verbose mode (tool results and Claude subagent transcripts) |
 | `m` | Toggle Markdown rendering / raw text |
 | `Esc` / `q` / `p` | Back to list |
@@ -126,7 +136,7 @@ Stats use the current list filters and search. They show token totals, average t
 
 Archived Claude and Codex sessions live under `~/.claude-sessions-trash` with their original JSONL, side directory, and `metadata.json`.
 
-OpenCode sessions are backed by SQLite and are not archived by this tool yet. The UI hides Archive for OpenCode context menus and shows a short unsupported message for the `d` shortcut.
+Archive and restore are available for Claude and Codex sessions. OpenCode and Antigravity manage their own history stores.
 
 | Key | Action |
 |-----|--------|
@@ -164,6 +174,7 @@ internal/
     claude/                Claude Code adapter
     codex/                 Codex CLI adapter
     opencode/              OpenCode adapter
+    antigravity/           Antigravity IDE and CLI adapters
   app/                     Scan, preview, query, stats, archive, resume services
   storage/                 Cache and trash interfaces/implementations
   ui/

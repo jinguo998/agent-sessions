@@ -41,17 +41,22 @@ func TestSidePreviewLoadSessionReplacesStaleLinesWithLoading(t *testing.T) {
 func TestSidePreviewNeedsReloadDoesNotDuplicateSameSession(t *testing.T) {
 	m := NewSidePreviewModel()
 	m.sessionID = "same"
+	m.source = session.SourceAntigravityIDE
+	same := session.Session{ID: "same", Source: session.SourceAntigravityIDE}
 	m.loading = true
-	if m.NeedsReload("same") {
+	if m.NeedsReload(same) {
 		t.Fatal("loading preview should not duplicate a load for the same session")
 	}
 
 	m.loading = false
-	if m.NeedsReload("same") {
+	if m.NeedsReload(same) {
 		t.Fatal("loaded preview should not reload the same session")
 	}
-	if !m.NeedsReload("other") {
+	if !m.NeedsReload(session.Session{ID: "other", Source: same.Source}) {
 		t.Fatal("different session should reload")
+	}
+	if !m.NeedsReload(session.Session{ID: "same", Source: session.SourceAntigravityCLI}) {
+		t.Fatal("the CLI copy has a different transcript")
 	}
 }
 

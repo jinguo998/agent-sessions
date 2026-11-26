@@ -15,7 +15,7 @@ This file is only a routing map for coding agents. Do not duplicate the full pro
 - Entrypoint and shell integration: `cmd/claude-sessions/`
 - Source-agnostic session model: `internal/domain/`
 - Source capability interfaces and shared source helpers: `internal/source/`
-- Source adapters: `internal/source/claude/`, `internal/source/codex/`, `internal/source/opencode/`
+- Source adapters: `internal/source/claude/`, `internal/source/codex/`, `internal/source/opencode/`, `internal/source/antigravity/`
 - App services and view models: `internal/app/`
 - Cache and trash stores: `internal/storage/`
 - Full-screen TUI and inline picker: `internal/ui/tui/`, `internal/ui/picker/`

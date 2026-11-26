@@ -27,7 +27,6 @@ type ContextMenuModel struct {
 
 // Default menu items and dimensions (moved from view.go).
 var baseMenuItems = []MenuItem{
-	{Label: "Resume", Action: ActionResumeFast},
 	{Label: "Fork", Action: ActionFork},
 	{Label: "cd to project", Action: ActionCd},
 	{Label: "Preview", Action: ActionPreview},
@@ -39,11 +38,14 @@ const menuWidth = 17 // visible width of each menu line (matches longest label +
 
 func menuItemsForSession(sources session.SourceRegistry, sess session.Session) []MenuItem {
 	items := make([]MenuItem, 0, len(baseMenuItems)+1)
-	items = append(items, baseMenuItems[0])
+	items = append(items, MenuItem{Label: sources.Info(sess.Source).ResumeLabel, Action: ActionResumeFast})
 	if sources.SupportsSafeResumeAction(sess.Source) {
 		items = append(items, safeResumeMenuItem)
 	}
-	for _, item := range baseMenuItems[1:] {
+	for _, item := range baseMenuItems {
+		if item.Action == ActionFork && !sources.SupportsFork(sess.Source) {
+			continue
+		}
 		if item.Action == ActionDelete && !sources.SupportsArchive(sess.Source) {
 			continue
 		}

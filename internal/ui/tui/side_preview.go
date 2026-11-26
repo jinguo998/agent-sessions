@@ -384,6 +384,7 @@ func (s SidePreviewModel) statusText() string {
 // NeedsReload returns true if the given session ID differs from the current
 // panel. While a session is already loading, duplicate reloads for that same
 // session only add competing background work and delay the newest selection.
-func (s SidePreviewModel) NeedsReload(sessionID string) bool {
-	return sessionID != s.sessionID
+func (s SidePreviewModel) NeedsReload(sess session.Session) bool {
+	return sess.ID != s.sessionID || sess.Source != s.source || sess.FilePath != s.filePath ||
+		sess.FileSize != s.session.FileSize || !sess.LastTime.Equal(s.session.LastTime)
 }

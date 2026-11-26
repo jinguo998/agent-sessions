@@ -34,10 +34,17 @@ const (
 type Result struct {
 	Dir            string
 	ID             string
+	Client         string
+	Title          string
 	Fork           bool
 	PermissionMode session.PermissionMode
 	CdOnly         bool // just cd to project dir, don't resume
 	Source         session.Source
+}
+
+func resumeResult(sess session.Session, mode session.PermissionMode) *Result {
+	return &Result{Dir: sess.ProjectPath, ID: sess.ID, Client: sess.Client, Title: sess.Title,
+		PermissionMode: normalizePermissionMode(mode), Source: sess.Source}
 }
 
 type Services struct {
@@ -246,7 +253,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case StatsListFocusMsg:
-		if m.list.focusSessionID(msg.Session.ID) {
+		if m.list.focusSession(msg.Session) {
 			m.view = viewList
 			m.flash = "Focused: " + truncateID(msg.Session.ID)
 			clearCmd := tea.Tick(2*time.Second, func(time.Time) tea.Msg { return FlashClearMsg{} })
@@ -335,6 +342,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case OpenEditorMsg:
+		switch filepath.Ext(msg.FilePath) {
+		case ".db", ".pb":
+			return m.Update(FlashMsg{Text: "This history has an indexed preview. Open it with Enter."})
+		}
 		if m.services.Editor == nil {
 			return m, nil
 		}
@@ -373,11 +384,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Messages emitted by ListModel
 	case SessionSelectedMsg:
-		m.result = &Result{Dir: msg.Session.ProjectPath, ID: msg.Session.ID, PermissionMode: normalizePermissionMode(msg.PermissionMode), Source: msg.Session.Source}
+		m.result = resumeResult(msg.Session, msg.PermissionMode)
 		return m, tea.Quit
 
 	case SessionForkMsg:
-		m.result = &Result{Dir: msg.Session.ProjectPath, ID: msg.Session.ID, Fork: true, PermissionMode: normalizePermissionMode(msg.PermissionMode), Source: msg.Session.Source}
+		if !m.services.Sources.SupportsFork(msg.Session.Source) {
+			m.flash = "Fork unsupported for " + m.services.Sources.Info(msg.Session.Source).Label
+			return m, tea.Tick(2*time.Second, func(time.Time) tea.Msg { return FlashClearMsg{} })
+		}
+		m.result = resumeResult(msg.Session, msg.PermissionMode)
+		m.result.Fork = true
 		return m, tea.Quit
 
 	case SessionPreviewMsg:
@@ -613,16 +629,14 @@ func (m Model) handleMenuAction(msg MenuActionMsg) (tea.Model, tea.Cmd) {
 	sess := msg.Session
 	switch msg.Action {
 	case ActionResumeSafe:
-		m.result = &Result{Dir: sess.ProjectPath, ID: sess.ID, PermissionMode: session.PermissionModeSafe, Source: sess.Source}
-		return m, tea.Quit
+		return m.Update(safeResumeSelection(sess))
 	case ActionResumeFast:
-		m.result = &Result{Dir: sess.ProjectPath, ID: sess.ID, PermissionMode: m.services.Sources.DefaultPermissionMode(sess.Source), Source: sess.Source}
-		return m, tea.Quit
+		return m.Update(defaultResumeSelection(m.services.Sources, sess))
 	case ActionFork:
-		m.result = &Result{Dir: sess.ProjectPath, ID: sess.ID, Fork: true, PermissionMode: m.services.Sources.DefaultPermissionMode(sess.Source), Source: sess.Source}
-		return m, tea.Quit
+		return m.Update(forkSelection(m.services.Sources, sess))
 	case ActionCd:
-		m.result = &Result{Dir: sess.ProjectPath, ID: sess.ID, CdOnly: true, PermissionMode: session.PermissionModeSafe, Source: sess.Source}
+		m.result = resumeResult(sess, session.PermissionModeSafe)
+		m.result.CdOnly = true
 		return m, tea.Quit
 	case ActionPreview:
 		return m, m.openPreview(sess, viewList)
@@ -751,7 +765,7 @@ func (m *Model) loadSidePreviewIfNeeded() tea.Cmd {
 		m.sidePreview = NewSidePreviewModel()
 		return nil
 	}
-	if !m.sidePreview.NeedsReload(sess.ID) {
+	if !m.sidePreview.NeedsReload(sess) {
 		traceEvent("side_preview_load_skip", map[string]any{
 			"reason":      "same_session",
 			"session_id":  sess.ID,

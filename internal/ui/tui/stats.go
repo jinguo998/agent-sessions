@@ -464,7 +464,11 @@ func renderStatsDashboardResult(stats sessionStats, shownCount, totalCount, widt
 	b.WriteString("\n\n")
 	line += 2
 
-	footerText := "q close  [/]/1-4 range  j/k move  Enter/p preview  r/R resume  f project  l list  y copy  o open"
+	resumeLabel := "resume"
+	if selectedQueue >= 0 && selectedQueue < len(stats.ResumeQueue) {
+		resumeLabel = strings.ToLower(sources.Info(stats.ResumeQueue[selectedQueue].Session.Source).ResumeLabel)
+	}
+	footerText := "q close  [/]/1-4 range  j/k move  Enter/p preview  r/R " + resumeLabel + "  f project  l list  y copy  o open"
 	footerLines := strings.ReplaceAll(wrapText(footerText, max(width-4, 20)), "\n", "\n  ")
 	footer := "  " + dimStyle.Render(footerLines)
 	b.WriteString(footer)

@@ -308,18 +308,18 @@ func (p PreviewModel) View() string {
 		if !p.markdown {
 			markdownLabel = "Markdown"
 		}
-		helpItems := [][2]string{
-			{"r", "Resume"}, {"n", "Fork"}, {"j/k", "Scroll"}, {"gg", "Top"}, {"G", "Bottom"},
-			{"^D/^U", "½Page"}, {"^F/^B", "Page"}, {"/", "Search"},
+		info := p.sources.Info(p.session.Source)
+		helpItems := [][2]string{{"r", info.ResumeLabel}}
+		if info.SupportsSafeResumeAction {
+			helpItems = append(helpItems, [2]string{"R", "Safe"})
+		}
+		if info.SupportsFork {
+			helpItems = append(helpItems, [2]string{"n", "Fork"})
+		}
+		helpItems = append(helpItems, [][2]string{
+			{"j/k", "Scroll"}, {"gg", "Top"}, {"G", "Bottom"}, {"^D/^U", "½Page"}, {"^F/^B", "Page"}, {"/", "Search"},
 			{"v", verboseLabel}, {"m", markdownLabel}, {"M", "Select text"}, {"Esc", "Back"},
-		}
-		if p.sources.SupportsSafeResumeAction(p.session.Source) {
-			helpItems = [][2]string{
-				{"r", "Resume"}, {"R", "Safe"}, {"n", "Fork"}, {"j/k", "Scroll"}, {"gg", "Top"}, {"G", "Bottom"},
-				{"^D/^U", "½Page"}, {"^F/^B", "Page"}, {"/", "Search"},
-				{"v", verboseLabel}, {"m", markdownLabel}, {"M", "Select text"}, {"Esc", "Back"},
-			}
-		}
+		}...)
 		help := renderHelpBar(helpItems)
 		b.WriteString(help)
 		b.WriteString("\n")

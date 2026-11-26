@@ -6,7 +6,7 @@ This document maps the current layered session manager architecture.
 
 - `internal/domain`: source-agnostic concepts only; no internal imports.
 - `internal/source`: source capability interfaces and shared source helpers; imports `domain`.
-- `internal/source/claude`, `internal/source/codex`: adapt external JSONL/path formats into `domain`.
+- Source adapters in `internal/source/{claude,codex,opencode,antigravity}` translate native histories into `domain` sessions.
 - `internal/storage`: storage interfaces; imports `domain`.
 - `internal/storage/cache`, `internal/storage/trash`: concrete storage implementations.
 - `internal/app`: services and app view models; depends on `domain`, source/storage interfaces, and `app/ports`.
@@ -20,7 +20,7 @@ Run `make arch` to check these boundaries.
 
 Entrypoint, command routing, shell integration, runtime wiring, and final process handoff.
 
-- Creates Claude/Codex adapters, cache/trash stores, app services, platform implementations, and UI services.
+- Creates source adapters, cache/trash stores, app services, platform implementations, and UI services.
 - Handles `init`, `pick`, default TUI mode, version output, and resume/fork/cd execution.
 - Direct TUI and command-line picker resumes use `syscall.Exec`; cd handoff uses
   `/tmp/claude-sessions-cd`.
@@ -57,6 +57,10 @@ Concrete source adapters.
 - Parse full and tail previews.
 - Map source metadata into domain fields.
 - Build source-specific resume/fork/cd plans and archive side-dir specs.
+
+## `internal/source/antigravity`
+
+The IDE and CLI adapters have separate source IDs. They share transcript parsing and read Antigravity's SQLite summary index for workspace, title, and history metadata. The IDE adapter also recognizes the desktop App and legacy IDE profile. Preview falls back to indexed user and assistant turns for native histories without a transcript.
 
 ## `internal/storage`
 
