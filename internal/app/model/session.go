@@ -12,9 +12,11 @@ type Source = domain.Source
 type TokenUsage = domain.TokenUsage
 
 const (
-	SourceClaude   = domain.SourceClaude
-	SourceCodex    = domain.SourceCodex
-	SourceOpenCode = domain.SourceOpenCode
+	SourceClaude         = domain.SourceClaude
+	SourceCodex          = domain.SourceCodex
+	SourceOpenCode       = domain.SourceOpenCode
+	SourceAntigravityIDE = domain.SourceAntigravityIDE
+	SourceAntigravityCLI = domain.SourceAntigravityCLI
 )
 
 // Session is the application-facing session view model. It embeds the pure

@@ -742,10 +742,13 @@ func (l ListModel) View() string {
 			{"s", l.sortMode.String()}, {"f", l.filterLabel()}, {"?", "Help"}, {"q", "Quit"},
 		}
 	}
+	if sess, ok := l.SelectedSession(); ok {
+		helpItems[1][1] = l.sources.Info(sess.Source).ResumeLabel
+	}
 	helpBar := renderHelpBar(helpItems)
 	b.WriteString(helpBar)
 	b.WriteString("\n")
-	b.WriteString(renderSourceLegend(l.sources))
+	b.WriteString(l.sourceLegend(l.width))
 
 	return b.String()
 }
@@ -806,9 +809,12 @@ func (l ListModel) CompactView(leftWidth int) string {
 			{"s", l.sortMode.String()}, {"f", l.filterLabel()}, {"q", "Quit"}, {"T", "Trash"}, {"?", "Help"},
 		}
 	}
+	if sess, ok := l.SelectedSession(); ok {
+		helpItems[1][1] = l.sources.Info(sess.Source).ResumeLabel
+	}
 	left.WriteString(renderHelpBarToWidth(helpItems, leftWidth-2))
 	left.WriteString("\n")
-	left.WriteString(renderSourceLegend(l.sources))
+	left.WriteString(l.sourceLegend(leftWidth - 2))
 
 	return left.String()
 }
@@ -848,12 +854,21 @@ func (l ListModel) selectedSourceFilter() session.Source {
 	return all[idx].Source
 }
 
-func renderSourceLegend(sources session.SourceRegistry) string {
+func (l ListModel) sourceLegend(width int) string {
 	var parts []string
-	for _, info := range sources.All() {
+	for _, info := range l.sources.All() {
 		parts = append(parts, sourceBadgeStyle(info).Render(info.Badge)+helpDescStyle.Render(" "+info.Label))
 	}
-	return " " + strings.Join(parts, helpDescStyle.Render("  "))
+	legend := " " + strings.Join(parts, helpDescStyle.Render("  "))
+	if lipgloss.Width(legend) <= width {
+		return legend
+	}
+	var items [][2]string
+	if sess, ok := l.SelectedSession(); ok {
+		info := l.sources.Info(sess.Source)
+		items = append(items, [2]string{info.Badge, info.Label})
+	}
+	return renderHelpBarToWidth(append(items, [2]string{"F", "Filter by source"}), width)
 }
 
 // headerLines returns the number of header lines above the session list.
@@ -921,9 +936,9 @@ func (l *ListModel) updateListOffset() {
 	}
 }
 
-func (l *ListModel) focusSessionID(id string) bool {
+func (l *ListModel) focusSession(target session.Session) bool {
 	for i, sess := range l.filtered {
-		if sess.ID == id {
+		if sess.Source == target.Source && sess.ID == target.ID {
 			l.cursor = i
 			l.updateListOffset()
 			return true

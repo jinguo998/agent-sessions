@@ -384,11 +384,13 @@ func TestListModelArchiveUnsupportedForOpenCode(t *testing.T) {
 	}
 }
 
-func TestListModelSourceFilterCyclesThroughOpenCode(t *testing.T) {
+func TestListModelSourceFilterCyclesThroughAllClients(t *testing.T) {
 	l := NewListModel().SetSessions([]session.Session{
 		{ID: "claude", Source: session.SourceClaude, LastTime: time.Date(2026, 4, 12, 12, 0, 0, 0, time.UTC), MsgCount: 1},
 		{ID: "codex", Source: session.SourceCodex, LastTime: time.Date(2026, 4, 12, 11, 0, 0, 0, time.UTC), MsgCount: 1},
 		{ID: "opencode", Source: session.SourceOpenCode, LastTime: time.Date(2026, 4, 12, 10, 0, 0, 0, time.UTC), MsgCount: 1},
+		{ID: "shared", Source: session.SourceAntigravityIDE, MsgCount: 1},
+		{ID: "shared", Source: session.SourceAntigravityCLI, MsgCount: 1},
 	}).SetSize(120, 20)
 
 	l, _ = l.Update(testKeyRunes("F"))
@@ -402,6 +404,16 @@ func TestListModelSourceFilterCyclesThroughOpenCode(t *testing.T) {
 	l, _ = l.Update(testKeyRunes("F"))
 	if l.sourceFilterLabel() != "OpenCode" || len(l.filtered) != 1 || l.filtered[0].ID != "opencode" {
 		t.Fatalf("third source filter = %q %#v", l.sourceFilterLabel(), l.filtered)
+	}
+	for _, kind := range []session.Source{session.SourceAntigravityIDE, session.SourceAntigravityCLI} {
+		l, _ = l.Update(testKeyRunes("F"))
+		if len(l.filtered) != 1 || l.filtered[0].Source != kind {
+			t.Fatalf("%s filter: %#v", kind, l.filtered)
+		}
+	}
+	l, _ = l.Update(testKeyRunes("F"))
+	if len(l.filtered) != 5 || !l.focusSession(session.Session{ID: "shared", Source: session.SourceAntigravityCLI}) || l.filtered[l.cursor].Source != session.SourceAntigravityCLI {
+		t.Fatal("all-source view failed to select the CLI copy")
 	}
 }
 

@@ -5,13 +5,15 @@ import (
 	"time"
 )
 
-// Source identifies which CLI tool created a session.
+// Source identifies the client that owns a session.
 type Source string
 
 const (
-	SourceClaude   Source = "claude"
-	SourceCodex    Source = "codex"
-	SourceOpenCode Source = "opencode"
+	SourceClaude         Source = "claude"
+	SourceCodex          Source = "codex"
+	SourceOpenCode       Source = "opencode"
+	SourceAntigravityIDE Source = "antigravity-ide"
+	SourceAntigravityCLI Source = "antigravity-cli"
 )
 
 // TokenUsage holds source-normalized token accounting.

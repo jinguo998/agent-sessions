@@ -21,6 +21,7 @@ import (
 	"github.com/jinguo998/claude-sessions/internal/platform/shell"
 	"github.com/jinguo998/claude-sessions/internal/platform/terminal"
 	"github.com/jinguo998/claude-sessions/internal/source"
+	"github.com/jinguo998/claude-sessions/internal/source/antigravity"
 	"github.com/jinguo998/claude-sessions/internal/source/claude"
 	"github.com/jinguo998/claude-sessions/internal/source/codex"
 	"github.com/jinguo998/claude-sessions/internal/source/opencode"
@@ -245,7 +246,6 @@ type runtimeServices struct {
 }
 
 type runtimeSource struct {
-	Info    session.SourceInfo
 	Scanner source.Scanner
 	Preview source.PreviewParser
 	Resume  source.ResumePlanner
@@ -258,65 +258,33 @@ func newRuntime() runtimeServices {
 	claudeAdapter := claude.NewAdapter()
 	codexAdapter := codex.NewAdapter()
 	openCodeAdapter := opencode.NewAdapter()
+	ide, cli := antigravity.NewIDE(), antigravity.NewCLI()
 	sources := []runtimeSource{
 		{
-			Info: session.SourceInfo{
-				Source:                   session.SourceClaude,
-				Label:                    "Claude",
-				Badge:                    "C",
-				LightColor:               "27",
-				DarkColor:                "75",
-				DefaultPermissionMode:    session.PermissionModeFast,
-				SupportsSafeResumeAction: true,
-				SupportsFork:             true,
-				SupportsArchive:          true,
-			},
 			Scanner: claudeAdapter,
 			Preview: claudeAdapter,
 			Resume:  claudeAdapter,
 			Archive: claudeAdapter,
 		},
 		{
-			Info: session.SourceInfo{
-				Source:                   session.SourceCodex,
-				Label:                    "Codex",
-				Badge:                    "X",
-				LightColor:               "22",
-				DarkColor:                "40",
-				DefaultPermissionMode:    session.PermissionModeSafe,
-				SupportsSafeResumeAction: false,
-				SupportsFork:             true,
-				SupportsArchive:          true,
-			},
 			Scanner: codexAdapter,
 			Preview: codexAdapter,
 			Resume:  codexAdapter,
 			Archive: codexAdapter,
 		},
 		{
-			Info: session.SourceInfo{
-				Source:                   session.SourceOpenCode,
-				Label:                    "OpenCode",
-				Badge:                    "O",
-				LightColor:               "88",
-				DarkColor:                "204",
-				DefaultPermissionMode:    session.PermissionModeSafe,
-				SupportsSafeResumeAction: false,
-				SupportsFork:             true,
-				SupportsArchive:          false,
-			},
 			Scanner: openCodeAdapter,
 			Preview: openCodeAdapter,
 			Resume:  openCodeAdapter,
 		},
+		{Scanner: ide, Preview: ide, Resume: ide},
+		{Scanner: cli, Preview: cli, Resume: cli},
 	}
-	sourceInfos := make([]session.SourceInfo, 0, len(sources))
 	scanners := make([]source.Scanner, 0, len(sources))
 	previewParsers := make([]source.PreviewParser, 0, len(sources))
 	resumePlanners := make([]source.ResumePlanner, 0, len(sources))
 	archiveSpecifiers := make([]source.ArchiveSpecifier, 0, len(sources))
 	for _, src := range sources {
-		sourceInfos = append(sourceInfos, src.Info)
 		if src.Scanner != nil {
 			scanners = append(scanners, src.Scanner)
 		}
@@ -330,7 +298,6 @@ func newRuntime() runtimeServices {
 			archiveSpecifiers = append(archiveSpecifiers, src.Archive)
 		}
 	}
-	sourceRegistry := session.NewSourceRegistry(sourceInfos)
 
 	metadataCache := cache.New()
 	trashStore, err := trash.New()
@@ -351,7 +318,7 @@ func newRuntime() runtimeServices {
 		Archive:   archiveSvc,
 		Clipboard: clipboard.NewSystem(),
 		Editor:    editor.NewSystem(),
-		Sources:   sourceRegistry,
+		Sources:   session.DefaultSourceRegistry(),
 	}
 	return runtimeServices{scan: scanRepo, resume: resumeSvc, tui: tuiServices}
 }
@@ -373,6 +340,8 @@ func targetFromTUIResult(result tui.Result) domain.ResumeTarget {
 			ID:          result.ID,
 			Source:      domain.Source(result.Source),
 			ProjectPath: result.Dir,
+			Client:      result.Client,
+			Title:       result.Title,
 		},
 		Action:         action,
 		PermissionMode: mode,

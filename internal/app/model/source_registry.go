@@ -19,6 +19,7 @@ type SourceInfo struct {
 	Source                   Source
 	Label                    string
 	Badge                    string
+	ResumeLabel              string
 	LightColor               string
 	DarkColor                string
 	DefaultPermissionMode    PermissionMode
@@ -67,6 +68,8 @@ func DefaultSourceRegistry() SourceRegistry {
 			SupportsFork:             true,
 			SupportsArchive:          false,
 		},
+		{Source: SourceAntigravityIDE, Label: "Antigravity IDE", Badge: "I", ResumeLabel: "Open IDE", LightColor: "54", DarkColor: "141"},
+		{Source: SourceAntigravityCLI, Label: "Antigravity CLI", Badge: "A", LightColor: "30", DarkColor: "80"},
 	})
 }
 
@@ -129,6 +132,9 @@ func normalizeSourceInfo(info SourceInfo) SourceInfo {
 	if strings.TrimSpace(info.Badge) == "" {
 		info.Badge = fallback.Badge
 	}
+	if info.ResumeLabel == "" {
+		info.ResumeLabel = fallback.ResumeLabel
+	}
 	if strings.TrimSpace(info.LightColor) == "" {
 		info.LightColor = fallback.LightColor
 	}
@@ -150,6 +156,7 @@ func fallbackSourceInfo(source Source) SourceInfo {
 		Source:                source,
 		Label:                 label,
 		Badge:                 "?",
+		ResumeLabel:           "Resume",
 		LightColor:            "242",
 		DarkColor:             "241",
 		DefaultPermissionMode: PermissionModeSafe,

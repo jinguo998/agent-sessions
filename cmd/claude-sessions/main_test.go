@@ -13,7 +13,61 @@ import (
 
 	"github.com/jinguo998/claude-sessions/internal/domain"
 	platformshell "github.com/jinguo998/claude-sessions/internal/platform/shell"
+	"github.com/jinguo998/claude-sessions/internal/ui/picker"
+	"github.com/jinguo998/claude-sessions/internal/ui/tui"
 )
+
+func TestAntigravityThroughPickerAndTUI(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, key := range []string{"XDG_CACHE_HOME", "XDG_DATA_HOME", "CODEX_HOME", "CLAUDE_CONFIG_DIR", "OPENCODE_DATA_DIR"} {
+		t.Setenv(key, filepath.Join(home, key))
+	}
+	t.Setenv("OPENCODE_DB", "")
+	const id = "a1b2c3d4-1111-2222-3333-444455556666"
+	for _, profile := range []string{"antigravity-ide", "antigravity-cli"} {
+		dir := filepath.Join(home, ".gemini", profile, "brain", id, ".system_generated", "logs")
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "transcript.jsonl"), []byte(`{"type":"USER_INPUT","content":"searchable `+profile+`"}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := newRuntime()
+	sessions := r.scan.Scan(t.Context()).Sessions
+	if len(sessions) != 2 {
+		t.Fatalf("discovered %d sessions", len(sessions))
+	}
+	for _, s := range sessions {
+		info := r.tui.Sources.Info(s.Source)
+		if info.Label == string(s.Source) || info.SupportsArchive || info.SupportsFork {
+			t.Fatalf("source capabilities %#v", info)
+		}
+		matches := picker.FindSessions("searchable "+s.Client, sessions)
+		if len(matches) != 1 || matches[0].Session.Source != s.Source {
+			t.Fatalf("picker matched %#v", matches)
+		}
+		preview, err := r.tui.Preview.Load(t.Context(), s.Domain(), false)
+		if err != nil || len(preview) != 1 || preview[0].Text != "searchable "+s.Client {
+			t.Fatalf("preview %#v, %v", preview, err)
+		}
+		m := tui.InitialModel(r.tui)
+		updated, _ := m.Update(tui.SessionSelectedMsg{Session: s, PermissionMode: info.DefaultPermissionMode})
+		target := targetFromTUIResult(updated.(tui.Model).Result())
+		plan, err := r.resume.Plan(t.Context(), target)
+		if err != nil || target.Session.Client != s.Client {
+			t.Fatalf("handoff %#v, %v", target, err)
+		}
+		if s.Source == domain.SourceAntigravityCLI {
+			if !reflect.DeepEqual(plan.Args, []string{"agy", "--conversation", id}) {
+				t.Fatalf("CLI arguments %q", plan.Args)
+			}
+		} else if s.Source != domain.SourceAntigravityIDE || (plan.Executable != "antigravity-ide" && plan.Executable != "open") {
+			t.Fatalf("unexpected IDE handoff %#v", plan)
+		}
+	}
+}
 
 func captureMainOutput(t *testing.T, args ...string) string {
 	t.Helper()
