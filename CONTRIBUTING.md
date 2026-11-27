@@ -18,18 +18,27 @@ make build
 # Run
 ./claude-sessions
 
+# Format
+make fmt
+
 # Test
 make test
 
-# Lint
+# Lint (runs go vet, plus golangci-lint if installed)
 make lint
+
+# Full local verification (fmt-check, lint, arch, tests)
+make check
+
+# Race detector tests (requires CGO / a C compiler)
+make test-race
 ```
 
 ## Making Changes
 
 1. Create a branch from `main`
 2. Make your changes
-3. Run `make test && make lint`
+3. Run `make check`
 4. Push and create a Pull Request
 5. Describe the change and how it was tested
 
@@ -48,13 +57,14 @@ testdata/                      Test fixtures
 
 ## Style
 
-- Follow existing patterns
-- `go vet` must pass
+- Follow existing patterns and `.editorconfig`
+- `gofmt`, `go vet`, and `golangci-lint` (configured in `.golangci.yml`) must pass
 - Tests required for new scanner/parser logic
 
 ## Releasing
 
-Push a semantic-version tag to build and publish Linux and macOS binaries:
+1. Update `CHANGELOG.md` for the new version
+2. Push a semantic-version tag to build and publish Linux and macOS binaries:
 
 ```bash
 git tag -a v0.1.0 -m "v0.1.0"

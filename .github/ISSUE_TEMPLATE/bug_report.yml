@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a crash, parsing problem, or unexpected behavior
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly and concisely.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Run `claude-sessions`
+        2. Press ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+
+  - type: checkboxes
+    id: sources
+    attributes:
+      label: Affected session source(s)
+      options:
+        - label: Claude Code
+        - label: Codex CLI
+        - label: OpenCode
+        - label: Antigravity IDE
+        - label: Antigravity CLI
+        - label: General TUI / inline picker / shell integration
+
+  - type: input
+    id: version
+    attributes:
+      label: claude-sessions version
+      description: Output of `claude-sessions --version`
+      placeholder: "claude-sessions v0.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, shell, and terminal emulator
+      placeholder: "macOS 15 arm64, zsh, iTerm2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Paste any relevant terminal output or redacted session snippet (remove sensitive data first).
+      render: shell
