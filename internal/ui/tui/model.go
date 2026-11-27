@@ -250,7 +250,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.list.updateListOffset()
 			m.stats = m.stats.SetSessions(m.list.Filtered(), len(m.list.sessions), m.statsScopeSummary())
 			m.flash = "Filtered: " + domain.Session{ProjectPath: msg.ProjectPath}.ProjectShortName()
-			var cmd tea.Cmd = tea.Tick(2*time.Second, func(time.Time) tea.Msg { return FlashClearMsg{} })
+			cmd := tea.Tick(2*time.Second, func(time.Time) tea.Msg { return FlashClearMsg{} })
 			if m.wideMode() {
 				cmd = tea.Batch(cmd, m.loadSidePreviewNow())
 			}

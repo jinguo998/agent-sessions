@@ -87,7 +87,7 @@ func readIndex(ctx context.Context, root string, entries map[string]summary) err
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	// Older indexes omit parent_conversation_id.
 	var hasParent bool
 	if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM pragma_table_info('conversation_summaries') WHERE name='parent_conversation_id')").Scan(&hasParent); err != nil {

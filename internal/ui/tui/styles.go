@@ -30,10 +30,6 @@ var (
 	dimStyle = lipgloss.NewStyle().
 			Foreground(mutedColor)
 
-	helpStyle = lipgloss.NewStyle().
-			Foreground(mutedColor).
-			Padding(1, 0, 0, 1)
-
 	helpKeyStyle = lipgloss.NewStyle().
 			Foreground(accentColor).
 			Bold(true)

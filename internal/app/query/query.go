@@ -112,9 +112,7 @@ func buildCorpus(sess model.Session) string {
 		sess.Origin,
 		sess.Model,
 	}
-	for _, label := range sess.Labels {
-		parts = append(parts, label)
-	}
+	parts = append(parts, sess.Labels...)
 	if sess.Attributes != nil {
 		for k, v := range sess.Attributes {
 			parts = append(parts, k, v)

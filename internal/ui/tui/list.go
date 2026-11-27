@@ -941,16 +941,3 @@ func (l *ListModel) focusSession(target session.Session) bool {
 	}
 	return false
 }
-
-func uniqueProjects(sessions []session.Session) []string {
-	seen := map[string]bool{}
-	var result []string
-	for _, s := range sessions {
-		if !seen[s.ProjectDir] {
-			seen[s.ProjectDir] = true
-			result = append(result, s.ProjectDir)
-		}
-	}
-	sort.Strings(result)
-	return result
-}

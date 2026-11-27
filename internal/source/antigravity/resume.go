@@ -35,7 +35,7 @@ func (a Adapter) PlanResume(ctx context.Context, target domain.ResumeTarget) (do
 	switch target.Action {
 	case domain.ResumeActionCd:
 		if s.ProjectPath == "" {
-			return domain.ResumePlan{}, fmt.Errorf("Antigravity recorded no local workspace for %s", s.ID)
+			return domain.ResumePlan{}, fmt.Errorf("antigravity recorded no local workspace for %s", s.ID)
 		}
 		plan.CdOnly = true
 		return plan, nil
