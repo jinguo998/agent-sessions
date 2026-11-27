@@ -2,23 +2,29 @@ package tui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
 	"github.com/muesli/termenv"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/app/ports"
 	apppreview "github.com/jinguo998/claude-sessions/internal/app/preview"
 	"github.com/jinguo998/claude-sessions/internal/domain"
+	uishared "github.com/jinguo998/claude-sessions/internal/ui/shared"
 )
 
 var (
 	markdownStyle        = "dark"
 	markdownColorProfile = termenv.ANSI256
+
+	relativeTime    = uishared.RelativeTime
+	displayWidth    = uishared.DisplayWidth
+	truncateToWidth = uishared.TruncateToWidth
+	padToWidth      = uishared.PadToWidth
+	wrapText        = uishared.WrapText
 )
 
 func ConfigureTerminalTheme(style string) {
@@ -30,89 +36,25 @@ func ConfigureTerminalTheme(style string) {
 	lipgloss.SetColorProfile(markdownColorProfile)
 }
 
-func relativeTime(t time.Time) string {
-	d := time.Since(t)
-	switch {
-	case d < time.Minute:
-		return "just now"
-	case d < time.Hour:
-		return fmt.Sprintf("%dm ago", int(d.Minutes()))
-	case d < 24*time.Hour:
-		return fmt.Sprintf("%dh ago", int(d.Hours()))
-	default:
-		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+func isTraceEnabled(tracer ports.Tracer) bool {
+	return tracer != nil && tracer.Enabled()
+}
+
+func emitTrace(tracer ports.Tracer, event string, fields map[string]any) {
+	if tracer != nil {
+		tracer.Event(event, fields)
 	}
 }
 
-// displayWidth returns the visual width of a string, counting CJK/fullwidth chars as 2.
-func displayWidth(s string) int {
-	return runewidth.StringWidth(s)
+func traceDurationMS(d time.Duration) float64 {
+	return float64(d.Microseconds()) / 1000
 }
 
-// truncateToWidth truncates a string to fit within maxWidth display columns.
-func truncateToWidth(s string, maxWidth int) string {
-	if maxWidth <= 0 {
-		return ""
+func firstTracer(tracers []ports.Tracer) ports.Tracer {
+	if len(tracers) > 0 {
+		return tracers[0]
 	}
-	if displayWidth(s) <= maxWidth {
-		return s
-	}
-	if maxWidth <= 3 {
-		return strings.Repeat(".", maxWidth)
-	}
-
-	w := 0
-	for i, r := range s {
-		rw := runewidth.RuneWidth(r)
-		if w+rw > maxWidth-3 && i < len(s)-1 {
-			return s[:i] + "..."
-		}
-		w += rw
-	}
-	return s
-}
-
-// padToWidth pads a string with spaces to reach exactly targetWidth display columns.
-func padToWidth(s string, targetWidth int) string {
-	w := displayWidth(s)
-	if w >= targetWidth {
-		return s
-	}
-	return s + strings.Repeat(" ", targetWidth-w)
-}
-
-// wrapText wraps text to the given width. If width <= 0, returns text unchanged.
-func wrapText(text string, width int) string {
-	if width <= 0 {
-		return text
-	}
-	var result strings.Builder
-	for _, line := range strings.Split(text, "\n") {
-		if displayWidth(line) <= width {
-			result.WriteString(line)
-			result.WriteString("\n")
-			continue
-		}
-		// Wrap long line
-		runes := []rune(line)
-		w := 0
-		start := 0
-		for i, r := range runes {
-			rw := runewidth.RuneWidth(r)
-			if w+rw > width {
-				result.WriteString(string(runes[start:i]))
-				result.WriteString("\n")
-				start = i
-				w = 0
-			}
-			w += rw
-		}
-		if start < len(runes) {
-			result.WriteString(string(runes[start:]))
-			result.WriteString("\n")
-		}
-	}
-	return strings.TrimRight(result.String(), "\n")
+	return nil
 }
 
 // highlightQuery highlights all occurrences of query in text (case-insensitive).
@@ -206,7 +148,8 @@ const (
 )
 
 // LoadSidePreviewContent renders only recent messages for the split-view preview.
-func LoadSidePreviewContent(loader *apppreview.Service, sess session.Session, width int) (previewResult, bool) {
+func LoadSidePreviewContent(loader *apppreview.Service, sess session.Session, width int, tracers ...ports.Tracer) (previewResult, bool) {
+	tracer := firstTracer(tracers)
 	totalStart := time.Now()
 	parseStart := time.Now()
 	var msgs []domain.ConversationTurn
@@ -230,14 +173,14 @@ func LoadSidePreviewContent(loader *apppreview.Service, sess session.Session, wi
 		if err != nil {
 			fields["error"] = err.Error()
 		}
-		traceEvent("side_preview_content", fields)
+		emitTrace(tracer, "side_preview_content", fields)
 		return previewResult{}, false
 	}
 	msgs = compactSidePreviewMessages(msgs)
 	renderStart := time.Now()
 	result := formatPreviewWithColors(msgs, width, false, true)
 	renderDuration := time.Since(renderStart)
-	traceEvent("side_preview_content", map[string]any{
+	emitTrace(tracer, "side_preview_content", map[string]any{
 		"file_path":     sess.FilePath,
 		"source":        string(sess.Source),
 		"width":         width,
@@ -255,10 +198,11 @@ func LoadSidePreviewContent(loader *apppreview.Service, sess session.Session, wi
 
 // LoadFullSidePreviewContent renders the whole session for an on-demand side
 // preview expansion after the user scrolls beyond the initial tail.
-func LoadFullSidePreviewContent(loader *apppreview.Service, sess session.Session, width int) (previewResult, bool) {
+func LoadFullSidePreviewContent(loader *apppreview.Service, sess session.Session, width int, tracers ...ports.Tracer) (previewResult, bool) {
+	tracer := firstTracer(tracers)
 	totalStart := time.Now()
 	result, ok := LoadPreviewContent(loader, sess, width, false, true)
-	traceEvent("side_preview_full_content", map[string]any{
+	emitTrace(tracer, "side_preview_full_content", map[string]any{
 		"file_path":     sess.FilePath,
 		"source":        string(sess.Source),
 		"width":         width,

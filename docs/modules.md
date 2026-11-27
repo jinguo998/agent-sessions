@@ -9,9 +9,10 @@ This document maps the current layered session manager architecture.
 - Source adapters in `internal/source/{claude,codex,opencode,antigravity}` translate native histories into `domain` sessions.
 - `internal/storage`: storage interfaces; imports `domain`.
 - `internal/storage/cache`, `internal/storage/trash`: concrete storage implementations.
-- `internal/app`: services and app view models; depends on `domain`, source/storage interfaces, and `app/ports`.
-- `internal/platform`: concrete shell, clipboard, editor, and terminal implementations.
-- `internal/ui`: TUI and picker presentation; depends on app services/view models, never source/storage/platform implementations.
+- `internal/app`: services and app view models; stdlib + `domain`, source/storage interfaces, and `app/ports` only.
+- `internal/platform`: concrete shell, clipboard, editor, terminal, and trace implementations.
+- `internal/ui/shared`: shared terminal formatting and source color theme helpers; depends on `domain`/`app/model` only.
+- `internal/ui`: TUI and picker presentation; depends on app services/view models and `ui/shared`, never source/storage/platform implementations.
 - `cmd/claude-sessions`: the only composition root; constructs adapters, stores, services, platform implementations, and UI models.
 
 Run `make arch` to check these boundaries.
@@ -22,8 +23,7 @@ Entrypoint, command routing, shell integration, runtime wiring, and final proces
 
 - Creates source adapters, cache/trash stores, app services, platform implementations, and UI services.
 - Handles `init`, `pick`, default TUI mode, version output, and resume/fork/cd execution.
-- Direct TUI and command-line picker resumes use `syscall.Exec`; cd handoff uses
-  `/tmp/claude-sessions-cd`.
+- Direct TUI and command-line picker resumes use `syscall.Exec`; shell `cs` cd handoff uses a per-invocation temporary file passed via `CLAUDE_SESSIONS_CD_FILE` (falling back to `/tmp/claude-sessions-cd`).
 - The Zsh `Ctrl+S` widget cannot exec an interactive CLI while ZLE owns stdin.
   It writes a one-shot `ResumePlan` handoff, exits the picker, and schedules the
   handoff consumer with `zle accept-line` so the resumed CLI starts from the
@@ -42,6 +42,7 @@ Source-specific metadata must be normalized into fields such as `Title`, `Client
 
 Capability interfaces and shared source helpers:
 
+- `Describer` (source metadata and resume/fork capabilities)
 - `Scanner`
 - `PreviewParser`
 - `ResumePlanner`
@@ -75,7 +76,7 @@ Archive paths, metadata JSON, and restore sidecar state stay in storage/app arch
 
 ## `internal/storage/cache`
 
-Metadata cache keyed by file size and mtime. Cache versioning lives here; derived fields can be rebuilt by app/query when needed.
+Metadata cache validated by `CacheFingerprint` (`Size`, `ModTime`, `MetadataKey`). Cache versioning and multi-scan epoch promotion live here; derived fields can be rebuilt by app/query when needed.
 
 ## `internal/storage/trash`
 
@@ -119,8 +120,9 @@ Environment-specific implementations:
 
 - `clipboard`: system clipboard commands.
 - `editor`: `$EDITOR` launcher.
-- `shell`: process exec, cd handoff, and one-shot resume-plan handoff.
+- `shell`: process exec, per-invocation cd handoff, and one-shot resume-plan handoff.
 - `terminal`: terminal theme detection.
+- `trace`: JSONL runtime trace logger (`CLAUDE_SESSIONS_TRACE`).
 
 Platform packages do not know about UI or source implementations.
 

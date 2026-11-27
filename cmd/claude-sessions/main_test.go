@@ -54,9 +54,9 @@ func TestAntigravityThroughPickerAndTUI(t *testing.T) {
 		}
 		m := tui.InitialModel(r.tui)
 		updated, _ := m.Update(tui.SessionSelectedMsg{Session: s, PermissionMode: info.DefaultPermissionMode})
-		target := targetFromTUIResult(updated.(tui.Model).Result())
+		target := updated.(tui.Model).Result()
 		plan, err := r.resume.Plan(t.Context(), target)
-		if err != nil || target.Session.Client != s.Client {
+		if err != nil || target.Session.Client != s.Client || target.Session.FilePath != s.FilePath {
 			t.Fatalf("handoff %#v, %v", target, err)
 		}
 		if s.Source == domain.SourceAntigravityCLI {
@@ -117,6 +117,9 @@ func TestMainInitShellOutput(t *testing.T) {
 			}
 			if !strings.Contains(out, "cs() {") || !strings.Contains(out, `command claude-sessions "$@"`) {
 				t.Fatalf("init output missing shell wrapper: %q", out)
+			}
+			if !strings.Contains(out, "CLAUDE_SESSIONS_CD_FILE=") || !strings.Contains(out, "claude-sessions-cd.XXXXXX") {
+				t.Fatalf("init output missing per-invocation cd handoff: %q", out)
 			}
 
 			tmp := filepath.Join(t.TempDir(), "init."+tt.shell)
@@ -266,6 +269,29 @@ func TestNonInteractiveCommandsDoNotProbeTerminalAtPackageInit(t *testing.T) {
 				t.Fatalf("%s produced no output", strings.Join(args, " "))
 			}
 		})
+	}
+}
+
+func TestNewRuntimeBuildsSourceRegistryFromAdapters(t *testing.T) {
+	r := newRuntime()
+	all := r.tui.Sources.All()
+	if len(all) != 5 {
+		t.Fatalf("registered sources = %d, want 5", len(all))
+	}
+	wantArchive := map[domain.Source]bool{
+		domain.SourceClaude:         true,
+		domain.SourceCodex:          true,
+		domain.SourceOpenCode:       false,
+		domain.SourceAntigravityIDE: false,
+		domain.SourceAntigravityCLI: false,
+	}
+	for src, want := range wantArchive {
+		if got := r.tui.Sources.SupportsArchive(src); got != want {
+			t.Fatalf("SupportsArchive(%s) = %v, want %v", src, got, want)
+		}
+	}
+	if r.tui.Tracer == nil {
+		t.Fatal("runtime should wire a tracer implementation")
 	}
 }
 

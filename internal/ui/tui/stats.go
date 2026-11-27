@@ -372,14 +372,6 @@ func statsSessionLabel(sess session.Session) string {
 	}
 }
 
-func truncateStatLabel(s string) string {
-	s = strings.TrimSpace(s)
-	if displayWidth(s) > 42 {
-		return truncateToWidth(s, 42)
-	}
-	return s
-}
-
 func bar(count, maxCount, width int) string {
 	if width < 1 {
 		width = 1

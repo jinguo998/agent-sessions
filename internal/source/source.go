@@ -10,6 +10,22 @@ import (
 
 var ErrUnsupportedCapability = errors.New("unsupported source capability")
 
+// Descriptor declares source display metadata and resume/fork capabilities.
+// Archive support is derived from whether the source wires ArchiveSpecifier.
+type Descriptor struct {
+	Source                   domain.Source
+	Label                    string
+	Badge                    string
+	ResumeLabel              string
+	DefaultPermissionMode    domain.PermissionMode
+	SupportsSafeResumeAction bool
+	SupportsFork             bool
+}
+
+type Describer interface {
+	Descriptor() Descriptor
+}
+
 type Candidate struct {
 	Source      domain.Source
 	Path        string

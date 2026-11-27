@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 func testKeyRunes(s string) tea.KeyMsg {
@@ -50,45 +51,42 @@ func testSampleFilePath(t *testing.T) string {
 func testSessions() []session.Session {
 	base := time.Date(2026, 4, 12, 12, 0, 0, 0, time.UTC)
 	return []session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "alpha",
 			ProjectDir:  "-Users-example-alpha",
 			ProjectPath: "/Users/example/alpha",
 			Source:      session.SourceClaude,
 			FirstMsg:    "Fix alpha bug",
 			LastMsg:     "done",
-			SearchText:  "fix alpha search token",
 			LastTime:    base.Add(-1 * time.Hour),
 			MsgCount:    5,
 			ToolCount:   1,
 			TokenUsage:  session.TokenUsage{Input: 100, Output: 50},
-		},
-		{
+		}, "fix alpha search token"),
+		session.FromDomain(domain.Session{
 			ID:          "bravo",
 			ProjectDir:  "-Users-example-bravo",
 			ProjectPath: "/Users/example/bravo",
 			Source:      session.SourceCodex,
 			FirstMsg:    "Refactor bravo",
 			LastMsg:     "investigating",
-			SearchText:  "refactor bravo something",
 			LastTime:    base.Add(-3 * time.Hour),
 			MsgCount:    12,
 			ToolCount:   8,
 			TokenUsage:  session.TokenUsage{Input: 2000, Output: 500},
-		},
-		{
+		}, "refactor bravo something"),
+		session.FromDomain(domain.Session{
 			ID:          "charlie",
 			ProjectDir:  "-Users-example-alpha",
 			ProjectPath: "/Users/example/alpha",
 			Source:      session.SourceClaude,
 			FirstMsg:    "Search logs",
 			LastMsg:     "finished",
-			SearchText:  "look for gamma match",
 			LastTime:    base.Add(-2 * time.Hour),
 			MsgCount:    8,
 			ToolCount:   3,
 			TokenUsage:  session.TokenUsage{Input: 600, Output: 200},
-		},
+		}, "look for gamma match"),
 	}
 }
 
@@ -173,9 +171,9 @@ func TestListModelApplySort(t *testing.T) {
 func TestListModelProjectSortUsesProjectPath(t *testing.T) {
 	base := time.Date(2026, 4, 12, 12, 0, 0, 0, time.UTC)
 	l := NewListModel().SetSessions([]session.Session{
-		{ID: "codex-alpha", ProjectDir: "alpha", ProjectPath: "/repo/alpha", LastTime: base.Add(-2 * time.Hour)},
-		{ID: "claude-alpha", ProjectDir: "-repo-alpha", ProjectPath: "/repo/alpha", LastTime: base.Add(-1 * time.Hour)},
-		{ID: "bravo", ProjectDir: "-repo-bravo", ProjectPath: "/repo/bravo", LastTime: base},
+		session.FromDomain(domain.Session{ID: "codex-alpha", ProjectDir: "alpha", ProjectPath: "/repo/alpha", LastTime: base.Add(-2 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "claude-alpha", ProjectDir: "-repo-alpha", ProjectPath: "/repo/alpha", LastTime: base.Add(-1 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "bravo", ProjectDir: "-repo-bravo", ProjectPath: "/repo/bravo", LastTime: base}, ""),
 	})
 	l.sortMode = sortProject
 	l.applySort()
@@ -343,15 +341,14 @@ func TestListModelDefaultResumeFallsBackToSafeForCodex(t *testing.T) {
 
 func TestListModelDefaultResumeUsesSafeForOpenCode(t *testing.T) {
 	l := NewListModel().SetSessions([]session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "opencode",
 			Source:      session.SourceOpenCode,
 			ProjectPath: "/repo/opencode",
 			FirstMsg:    "OpenCode work",
-			SearchText:  "opencode work",
 			LastTime:    time.Date(2026, 4, 12, 12, 0, 0, 0, time.UTC),
 			MsgCount:    1,
-		},
+		}, "opencode work"),
 	}).SetSize(120, 20)
 
 	_, cmd := l.Update(testKeyRunes("r"))
@@ -367,15 +364,14 @@ func TestListModelDefaultResumeUsesSafeForOpenCode(t *testing.T) {
 
 func TestListModelArchiveUnsupportedForOpenCode(t *testing.T) {
 	l := NewListModel().SetSessions([]session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "opencode",
 			Source:      session.SourceOpenCode,
 			ProjectPath: "/repo/opencode",
 			FirstMsg:    "OpenCode work",
-			SearchText:  "opencode work",
 			LastTime:    time.Date(2026, 4, 12, 12, 0, 0, 0, time.UTC),
 			MsgCount:    1,
-		},
+		}, "opencode work"),
 	}).SetSize(120, 20)
 
 	_, cmd := l.Update(testKeyRunes("d"))
@@ -386,11 +382,11 @@ func TestListModelArchiveUnsupportedForOpenCode(t *testing.T) {
 
 func TestListModelSourceFilterCyclesThroughAllClients(t *testing.T) {
 	l := NewListModel().SetSessions([]session.Session{
-		{ID: "claude", Source: session.SourceClaude, LastTime: time.Date(2026, 4, 12, 12, 0, 0, 0, time.UTC), MsgCount: 1},
-		{ID: "codex", Source: session.SourceCodex, LastTime: time.Date(2026, 4, 12, 11, 0, 0, 0, time.UTC), MsgCount: 1},
-		{ID: "opencode", Source: session.SourceOpenCode, LastTime: time.Date(2026, 4, 12, 10, 0, 0, 0, time.UTC), MsgCount: 1},
-		{ID: "shared", Source: session.SourceAntigravityIDE, MsgCount: 1},
-		{ID: "shared", Source: session.SourceAntigravityCLI, MsgCount: 1},
+		session.FromDomain(domain.Session{ID: "claude", Source: session.SourceClaude, LastTime: time.Date(2026, 4, 12, 12, 0, 0, 0, time.UTC), MsgCount: 1}, ""),
+		session.FromDomain(domain.Session{ID: "codex", Source: session.SourceCodex, LastTime: time.Date(2026, 4, 12, 11, 0, 0, 0, time.UTC), MsgCount: 1}, ""),
+		session.FromDomain(domain.Session{ID: "opencode", Source: session.SourceOpenCode, LastTime: time.Date(2026, 4, 12, 10, 0, 0, 0, time.UTC), MsgCount: 1}, ""),
+		session.FromDomain(domain.Session{ID: "shared", Source: session.SourceAntigravityIDE, MsgCount: 1}, ""),
+		session.FromDomain(domain.Session{ID: "shared", Source: session.SourceAntigravityCLI, MsgCount: 1}, ""),
 	}).SetSize(120, 20)
 
 	l, _ = l.Update(testKeyRunes("F"))
@@ -412,7 +408,7 @@ func TestListModelSourceFilterCyclesThroughAllClients(t *testing.T) {
 		}
 	}
 	l, _ = l.Update(testKeyRunes("F"))
-	if len(l.filtered) != 5 || !l.focusSession(session.Session{ID: "shared", Source: session.SourceAntigravityCLI}) || l.filtered[l.cursor].Source != session.SourceAntigravityCLI {
+	if len(l.filtered) != 5 || !l.focusSession(session.FromDomain(domain.Session{ID: "shared", Source: session.SourceAntigravityCLI}, "")) || l.filtered[l.cursor].Source != session.SourceAntigravityCLI {
 		t.Fatal("all-source view failed to select the CLI copy")
 	}
 }

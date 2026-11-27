@@ -87,3 +87,26 @@ func TestConsumePlanRejectsIncompletePlan(t *testing.T) {
 		t.Fatalf("incomplete handoff still exists: %v", err)
 	}
 }
+
+func TestWriteCdHandoffUsesPerInvocationEnvFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cd-handoff")
+	t.Setenv(CdHandoffEnv, path)
+
+	if err := writeCdHandoff("/repo/with spaces"); err != nil {
+		t.Fatalf("writeCdHandoff() error = %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(data) != "/repo/with spaces" {
+		t.Fatalf("handoff dir = %q, want /repo/with spaces", string(data))
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("cd handoff mode = %o, want 600", got)
+	}
+}

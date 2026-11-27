@@ -39,23 +39,27 @@ func (f fakeScanner) ScanFile(ctx context.Context, candidate source.Candidate) (
 	return f.scanned[candidate.Path], nil
 }
 
+type fakeCacheEntry struct {
+	fp   storage.CacheFingerprint
+	sess storage.CachedSession
+}
+
 type fakeCache struct {
-	items map[string]storage.CachedSession
-	puts  map[string]storage.CachedSession
+	items map[string]fakeCacheEntry
+	puts  map[string]fakeCacheEntry
 	saved bool
 }
 
-func (f *fakeCache) Get(path string, size int64, modTime time.Time) (storage.CachedSession, bool) {
-	_ = size
-	_ = modTime
-	item, ok := f.items[path]
-	return item, ok
+func (f *fakeCache) Get(key string, fp storage.CacheFingerprint) (storage.CachedSession, bool) {
+	item, ok := f.items[key]
+	if !ok || item.fp != fp {
+		return storage.CachedSession{}, false
+	}
+	return item.sess, true
 }
 
-func (f *fakeCache) Put(path string, size int64, modTime time.Time, sess storage.CachedSession) {
-	_ = size
-	_ = modTime
-	f.puts[path] = sess
+func (f *fakeCache) Put(key string, fp storage.CacheFingerprint, sess storage.CachedSession) {
+	f.puts[key] = fakeCacheEntry{fp: fp, sess: sess}
 }
 
 func (f *fakeCache) Save() {
@@ -70,13 +74,16 @@ func TestRepositoryScanUsesCacheAndRecordsPartialWarnings(t *testing.T) {
 		{Source: domain.SourceClaude, Path: "/broken.jsonl", FileSize: 3, ModTime: now},
 	}
 	cache := &fakeCache{
-		items: map[string]storage.CachedSession{
+		items: map[string]fakeCacheEntry{
 			"/cached.jsonl": {
-				Session:    domain.Session{ID: "cached", Source: domain.SourceClaude, MsgCount: 1},
-				SearchText: "cached corpus",
+				fp: storage.CacheFingerprint{Size: 1, ModTime: now},
+				sess: storage.CachedSession{
+					Session:    domain.Session{ID: "cached", Source: domain.SourceClaude, MsgCount: 1},
+					SearchText: "cached corpus",
+				},
 			},
 		},
-		puts: map[string]storage.CachedSession{},
+		puts: map[string]fakeCacheEntry{},
 	}
 	repo := NewRepository([]source.Scanner{fakeScanner{
 		source:     domain.SourceClaude,
@@ -107,8 +114,8 @@ func TestRepositoryScanUsesCacheAndRecordsPartialWarnings(t *testing.T) {
 	if byID["fresh"] != "fresh message tool output" {
 		t.Fatalf("fresh session corpus = %q", byID["fresh"])
 	}
-	if cache.puts["/fresh.jsonl"].SearchText != "fresh message tool output" {
-		t.Fatalf("cached fresh corpus = %q", cache.puts["/fresh.jsonl"].SearchText)
+	if cache.puts["/fresh.jsonl"].sess.SearchText != "fresh message tool output" {
+		t.Fatalf("cached fresh corpus = %q", cache.puts["/fresh.jsonl"].sess.SearchText)
 	}
 	if len(result.Warnings) != 1 || result.Warnings[0].Kind != WarningPartialScan {
 		t.Fatalf("warnings = %#v, want one partial scan warning", result.Warnings)
@@ -118,14 +125,16 @@ func TestRepositoryScanUsesCacheAndRecordsPartialWarnings(t *testing.T) {
 func TestRepositoryScanInvalidatesCacheWhenSourceMetadataChanges(t *testing.T) {
 	now := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
 	cache := &fakeCache{
-		items: map[string]storage.CachedSession{
+		items: map[string]fakeCacheEntry{
 			"/codex.jsonl": {
-				Session:     domain.Session{ID: "old", Source: domain.SourceCodex, MsgCount: 1, Title: "Old title"},
-				SearchText:  "old title",
-				MetadataKey: "Old title",
+				fp: storage.CacheFingerprint{Size: 1, ModTime: now, MetadataKey: "Old title"},
+				sess: storage.CachedSession{
+					Session:    domain.Session{ID: "old", Source: domain.SourceCodex, MsgCount: 1, Title: "Old title"},
+					SearchText: "old title",
+				},
 			},
 		},
-		puts: map[string]storage.CachedSession{},
+		puts: map[string]fakeCacheEntry{},
 	}
 	repo := NewRepository([]source.Scanner{fakeScanner{
 		source: domain.SourceCodex,
@@ -148,8 +157,8 @@ func TestRepositoryScanInvalidatesCacheWhenSourceMetadataChanges(t *testing.T) {
 	if len(result.Sessions) != 1 || result.Sessions[0].Title != "New title" {
 		t.Fatalf("sessions = %#v, want refreshed new title", result.Sessions)
 	}
-	if cache.puts["/codex.jsonl"].MetadataKey != "New title" {
-		t.Fatalf("cached metadata key = %q", cache.puts["/codex.jsonl"].MetadataKey)
+	if cache.puts["/codex.jsonl"].fp.MetadataKey != "New title" {
+		t.Fatalf("cached metadata key = %q", cache.puts["/codex.jsonl"].fp.MetadataKey)
 	}
 }
 

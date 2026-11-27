@@ -7,3 +7,8 @@ type Clipboard interface {
 type Editor interface {
 	Open(filePath string) error
 }
+
+type Tracer interface {
+	Enabled() bool
+	Event(event string, fields map[string]any)
+}

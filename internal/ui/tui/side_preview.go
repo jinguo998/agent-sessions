@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/app/ports"
 	apppreview "github.com/jinguo998/claude-sessions/internal/app/preview"
 )
 
@@ -30,14 +31,15 @@ type SidePreviewModel struct {
 	source       session.Source
 	session      session.Session
 	width        int
+	tracer       ports.Tracer
 	// Cached session metadata for View rendering.
 	title string // first message of the loaded session
 	path  string // project path of the loaded session
 }
 
-// NewSidePreviewModel returns a zero-value SidePreviewModel.
-func NewSidePreviewModel() SidePreviewModel {
-	return SidePreviewModel{}
+// NewSidePreviewModel returns a SidePreviewModel with optional tracer.
+func NewSidePreviewModel(tracers ...ports.Tracer) SidePreviewModel {
+	return SidePreviewModel{tracer: firstTracer(tracers)}
 }
 
 // Update processes incoming messages for the side preview.
@@ -60,7 +62,7 @@ func (s SidePreviewModel) Update(msg tea.Msg) (SidePreviewModel, tea.Cmd) {
 			}
 			s = s.clampScroll()
 		}
-		traceEvent("side_preview_update", map[string]any{
+		emitTrace(s.tracer, "side_preview_update", map[string]any{
 			"accepted":           accepted,
 			"msg_session_id":     msg.SessionID,
 			"current_session_id": s.sessionID,
@@ -81,13 +83,13 @@ func (s SidePreviewModel) Update(msg tea.Msg) (SidePreviewModel, tea.Cmd) {
 // The caller is responsible for combining this into the split layout.
 func (s SidePreviewModel) View(rightWidth int) string {
 	var traceStart time.Time
-	if traceEnabled() {
+	if isTraceEnabled(s.tracer) {
 		traceStart = time.Now()
 	}
 	if s.sessionID == "" {
 		out := emptyStyle.Render("Select a session to preview")
 		if !traceStart.IsZero() {
-			traceEvent("side_preview_view", map[string]any{
+			emitTrace(s.tracer, "side_preview_view", map[string]any{
 				"empty":       true,
 				"right_width": rightWidth,
 				"bytes":       len(out),
@@ -130,7 +132,7 @@ func (s SidePreviewModel) View(rightWidth int) string {
 
 	out := b.String()
 	if !traceStart.IsZero() {
-		traceEvent("side_preview_view", map[string]any{
+		emitTrace(s.tracer, "side_preview_view", map[string]any{
 			"empty":        false,
 			"session_id":   s.sessionID,
 			"token":        s.requestToken,
@@ -154,7 +156,8 @@ func (s SidePreviewModel) View(rightWidth int) string {
 // session file and sends a SidePreviewLoadedMsg when done.
 func (s SidePreviewModel) LoadSession(loader *apppreview.Service, sess session.Session, width int, token uint64) (SidePreviewModel, tea.Cmd) {
 	latestSidePreviewToken.Store(token)
-	traceEvent("side_preview_load_start", map[string]any{
+	tracer := s.tracer
+	emitTrace(tracer, "side_preview_load_start", map[string]any{
 		"session_id":   sess.ID,
 		"token":        token,
 		"file_path":    sess.FilePath,
@@ -185,7 +188,7 @@ func (s SidePreviewModel) LoadSession(loader *apppreview.Service, sess session.S
 
 	cmd := func() tea.Msg {
 		start := time.Now()
-		traceEvent("side_preview_cmd_start", map[string]any{
+		emitTrace(tracer, "side_preview_cmd_start", map[string]any{
 			"session_id": id,
 			"token":      token,
 			"file_path":  filePath,
@@ -193,14 +196,14 @@ func (s SidePreviewModel) LoadSession(loader *apppreview.Service, sess session.S
 			"width":      previewWidth,
 		})
 		if !sidePreviewTokenIsCurrent(token) {
-			return staleSidePreviewLoadedMsg(id, token, start, "before_render")
+			return staleSidePreviewLoadedMsg(tracer, id, token, start, "before_render")
 		}
 
-		if result, ok := LoadSidePreviewContent(loader, sess, previewWidth); ok {
+		if result, ok := LoadSidePreviewContent(loader, sess, previewWidth, tracer); ok {
 			if !sidePreviewTokenIsCurrent(token) {
-				return staleSidePreviewLoadedMsg(id, token, start, "after_render")
+				return staleSidePreviewLoadedMsg(tracer, id, token, start, "after_render")
 			}
-			traceEvent("side_preview_cmd_done", map[string]any{
+			emitTrace(tracer, "side_preview_cmd_done", map[string]any{
 				"session_id":    id,
 				"token":         token,
 				"ok":            true,
@@ -211,9 +214,9 @@ func (s SidePreviewModel) LoadSession(loader *apppreview.Service, sess session.S
 			return SidePreviewLoadedMsg{Token: token, SessionID: id, Content: result.content}
 		}
 		if !sidePreviewTokenIsCurrent(token) {
-			return staleSidePreviewLoadedMsg(id, token, start, "after_empty_render")
+			return staleSidePreviewLoadedMsg(tracer, id, token, start, "after_empty_render")
 		}
-		traceEvent("side_preview_cmd_done", map[string]any{
+		emitTrace(tracer, "side_preview_cmd_done", map[string]any{
 			"session_id":  id,
 			"token":       token,
 			"ok":          false,
@@ -240,8 +243,9 @@ func (s SidePreviewModel) LoadFullSession(loader *apppreview.Service, width int,
 	source := s.source
 	sess := s.session
 	tailLines := len(s.lines)
+	tracer := s.tracer
 
-	traceEvent("side_preview_full_load_start", map[string]any{
+	emitTrace(tracer, "side_preview_full_load_start", map[string]any{
 		"session_id": id,
 		"token":      token,
 		"file_path":  filePath,
@@ -253,21 +257,21 @@ func (s SidePreviewModel) LoadFullSession(loader *apppreview.Service, width int,
 	cmd := func() tea.Msg {
 		start := time.Now()
 		if !sidePreviewTokenIsCurrent(token) {
-			return staleSidePreviewLoadedMsg(id, token, start, "before_full_render")
+			return staleSidePreviewLoadedMsg(tracer, id, token, start, "before_full_render")
 		}
 
 		sidePreviewFullRenderSem <- struct{}{}
 		defer func() { <-sidePreviewFullRenderSem }()
 
 		if !sidePreviewTokenIsCurrent(token) {
-			return staleSidePreviewLoadedMsg(id, token, start, "after_full_wait")
+			return staleSidePreviewLoadedMsg(tracer, id, token, start, "after_full_wait")
 		}
 
-		if result, ok := LoadFullSidePreviewContent(loader, sess, width); ok {
+		if result, ok := LoadFullSidePreviewContent(loader, sess, width, tracer); ok {
 			if !sidePreviewTokenIsCurrent(token) {
-				return staleSidePreviewLoadedMsg(id, token, start, "after_full_render")
+				return staleSidePreviewLoadedMsg(tracer, id, token, start, "after_full_render")
 			}
-			traceEvent("side_preview_full_load_done", map[string]any{
+			emitTrace(tracer, "side_preview_full_load_done", map[string]any{
 				"session_id":    id,
 				"token":         token,
 				"ok":            true,
@@ -285,9 +289,9 @@ func (s SidePreviewModel) LoadFullSession(loader *apppreview.Service, width int,
 		}
 
 		if !sidePreviewTokenIsCurrent(token) {
-			return staleSidePreviewLoadedMsg(id, token, start, "after_full_empty_render")
+			return staleSidePreviewLoadedMsg(tracer, id, token, start, "after_full_empty_render")
 		}
-		traceEvent("side_preview_full_load_done", map[string]any{
+		emitTrace(tracer, "side_preview_full_load_done", map[string]any{
 			"session_id":  id,
 			"token":       token,
 			"ok":          false,
@@ -308,8 +312,8 @@ func sidePreviewTokenIsCurrent(token uint64) bool {
 	return token == latestSidePreviewToken.Load()
 }
 
-func staleSidePreviewLoadedMsg(id string, token uint64, start time.Time, stage string) tea.Msg {
-	traceEvent("side_preview_cmd_stale", map[string]any{
+func staleSidePreviewLoadedMsg(tracer ports.Tracer, id string, token uint64, start time.Time, stage string) tea.Msg {
+	emitTrace(tracer, "side_preview_cmd_stale", map[string]any{
 		"session_id":  id,
 		"token":       token,
 		"latest":      latestSidePreviewToken.Load(),

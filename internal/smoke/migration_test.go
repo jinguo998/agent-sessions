@@ -52,9 +52,9 @@ func TestPreviewVerboseSmoke(t *testing.T) {
 
 func TestPickerSearchOrderSmoke(t *testing.T) {
 	sessions := []model.Session{
-		{ID: "newer", SearchText: "codex billing", LastTime: parseTime(t, "2026-04-14T12:00:00Z")},
-		{ID: "older", SearchText: "codex billing", LastTime: parseTime(t, "2026-04-13T12:00:00Z")},
-		{ID: "skip", SearchText: "claude billing", LastTime: parseTime(t, "2026-04-15T12:00:00Z")},
+		model.FromDomain(domain.Session{ID: "newer", LastTime: parseTime(t, "2026-04-14T12:00:00Z")}, "codex billing"),
+		model.FromDomain(domain.Session{ID: "older", LastTime: parseTime(t, "2026-04-13T12:00:00Z")}, "codex billing"),
+		model.FromDomain(domain.Session{ID: "skip", LastTime: parseTime(t, "2026-04-15T12:00:00Z")}, "claude billing"),
 	}
 
 	results := picker.FindSessions("codex billing", sessions)

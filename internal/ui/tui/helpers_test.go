@@ -231,7 +231,7 @@ func TestLoadSidePreviewContentPerformanceFromEnv(t *testing.T) {
 	}
 
 	start := time.Now()
-	result, ok := LoadSidePreviewContent(testPreviewService(), session.Session{FilePath: path, Source: source}, 73)
+	result, ok := LoadSidePreviewContent(testPreviewService(), session.FromDomain(domain.Session{FilePath: path, Source: source}, ""), 73)
 	elapsed := time.Since(start)
 	if !ok {
 		t.Fatalf("LoadSidePreviewContent(%q) returned no content", path)
@@ -256,7 +256,7 @@ func BenchmarkLoadSidePreviewContentSyntheticMarkdown(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		result, ok := LoadSidePreviewContent(testPreviewService(), session.Session{FilePath: path, Source: session.SourceCodex}, 73)
+		result, ok := LoadSidePreviewContent(testPreviewService(), session.FromDomain(domain.Session{FilePath: path, Source: session.SourceCodex}, ""), 73)
 		if !ok {
 			b.Fatal("LoadSidePreviewContent returned no content")
 		}

@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mattn/go-runewidth"
-
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
 )
 
@@ -156,7 +154,7 @@ func Calculate(sessions []session.Session, now time.Time) Dashboard {
 
 		stats.ResumeQueue = append(stats.ResumeQueue, SessionRank{
 			Session:  sess,
-			Label:    truncateLabel(sessionLabel(sess)),
+			Label:    strings.TrimSpace(sessionLabel(sess)),
 			Project:  project,
 			Source:   sess.Source,
 			LastTime: sess.LastTime,
@@ -318,22 +316,4 @@ func sessionLabel(sess session.Session) string {
 	default:
 		return sess.ID
 	}
-}
-
-func truncateLabel(s string) string {
-	s = strings.TrimSpace(s)
-	if runewidth.StringWidth(s) <= 42 {
-		return s
-	}
-	var b strings.Builder
-	width := 0
-	for _, r := range s {
-		rw := runewidth.RuneWidth(r)
-		if width+rw > 42 {
-			break
-		}
-		b.WriteRune(r)
-		width += rw
-	}
-	return b.String()
 }

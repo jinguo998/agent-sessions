@@ -103,11 +103,14 @@ func (r *Repository) scanSource(ctx context.Context, scanner source.Scanner) sou
 	var cachedSessions []model.Session
 	for _, candidate := range candidates {
 		candidate := candidate
-		if cached, ok := r.cacheGet(candidate); ok {
-			if cached.Session.MsgCount > 0 {
-				cachedSessions = append(cachedSessions, model.FromDomain(cached.Session, cached.SearchText))
+		fp := candidateFingerprint(candidate)
+		if r.cache != nil {
+			if cached, ok := r.cache.Get(candidate.Path, fp); ok {
+				if cached.Session.MsgCount > 0 {
+					cachedSessions = append(cachedSessions, model.FromDomain(cached.Session, cached.SearchText))
+				}
+				continue
 			}
-			continue
 		}
 		wg.Add(1)
 		go func() {
@@ -126,12 +129,11 @@ func (r *Repository) scanSource(ctx context.Context, scanner source.Scanner) sou
 			}
 			searchText := buildSearchText(scanned.SearchParts)
 			cached := storage.CachedSession{
-				Session:     scanned.Session,
-				SearchText:  searchText,
-				MetadataKey: candidate.MetadataKey,
+				Session:    scanned.Session,
+				SearchText: searchText,
 			}
 			if r.cache != nil {
-				r.cache.Put(candidate.Path, candidate.FileSize, candidate.ModTime, cached)
+				r.cache.Put(candidate.Path, fp, cached)
 			}
 			if scanned.Session.MsgCount > 0 {
 				ch <- itemResult{session: model.FromDomain(scanned.Session, searchText)}
@@ -158,15 +160,12 @@ func (r *Repository) scanSource(ctx context.Context, scanner source.Scanner) sou
 	return result
 }
 
-func (r *Repository) cacheGet(candidate source.Candidate) (storage.CachedSession, bool) {
-	if r.cache == nil {
-		return storage.CachedSession{}, false
+func candidateFingerprint(candidate source.Candidate) storage.CacheFingerprint {
+	return storage.CacheFingerprint{
+		Size:        candidate.FileSize,
+		ModTime:     candidate.ModTime,
+		MetadataKey: candidate.MetadataKey,
 	}
-	cached, ok := r.cache.Get(candidate.Path, candidate.FileSize, candidate.ModTime)
-	if !ok || cached.MetadataKey != candidate.MetadataKey {
-		return storage.CachedSession{}, false
-	}
-	return cached, true
 }
 
 func buildSearchText(parts []string) string {

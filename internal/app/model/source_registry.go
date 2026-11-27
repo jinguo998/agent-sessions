@@ -13,15 +13,13 @@ const (
 	PermissionModeFast = domain.PermissionModeFast
 )
 
-// SourceInfo describes source presentation metadata and user-facing action
-// capabilities. It deliberately lives outside domain so domain remains pure.
+// SourceInfo describes terminal-agnostic source metadata and user-facing
+// action capabilities. Visual styling (such as terminal colors) belongs in UI.
 type SourceInfo struct {
 	Source                   Source
 	Label                    string
 	Badge                    string
 	ResumeLabel              string
-	LightColor               string
-	DarkColor                string
 	DefaultPermissionMode    PermissionMode
 	SupportsSafeResumeAction bool
 	SupportsFork             bool
@@ -33,14 +31,15 @@ type SourceRegistry struct {
 	bySource map[Source]SourceInfo
 }
 
+// DefaultSourceRegistry provides a fallback registry for zero-value UI models
+// and isolated unit tests. Production runtime wiring constructs the registry
+// directly from registered source adapters in cmd/claude-sessions.
 func DefaultSourceRegistry() SourceRegistry {
 	return NewSourceRegistry([]SourceInfo{
 		{
 			Source:                   SourceClaude,
 			Label:                    "Claude",
 			Badge:                    "C",
-			LightColor:               "27",
-			DarkColor:                "75",
 			DefaultPermissionMode:    PermissionModeFast,
 			SupportsSafeResumeAction: true,
 			SupportsFork:             true,
@@ -50,8 +49,6 @@ func DefaultSourceRegistry() SourceRegistry {
 			Source:                   SourceCodex,
 			Label:                    "Codex",
 			Badge:                    "X",
-			LightColor:               "22",
-			DarkColor:                "40",
 			DefaultPermissionMode:    PermissionModeSafe,
 			SupportsSafeResumeAction: false,
 			SupportsFork:             true,
@@ -61,15 +58,24 @@ func DefaultSourceRegistry() SourceRegistry {
 			Source:                   SourceOpenCode,
 			Label:                    "OpenCode",
 			Badge:                    "O",
-			LightColor:               "88",
-			DarkColor:                "204",
 			DefaultPermissionMode:    PermissionModeSafe,
 			SupportsSafeResumeAction: false,
 			SupportsFork:             true,
 			SupportsArchive:          false,
 		},
-		{Source: SourceAntigravityIDE, Label: "Antigravity IDE", Badge: "I", ResumeLabel: "Open IDE", LightColor: "54", DarkColor: "141"},
-		{Source: SourceAntigravityCLI, Label: "Antigravity CLI", Badge: "A", LightColor: "30", DarkColor: "80"},
+		{
+			Source:                SourceAntigravityIDE,
+			Label:                 "Antigravity IDE",
+			Badge:                 "I",
+			ResumeLabel:           "Open IDE",
+			DefaultPermissionMode: PermissionModeSafe,
+		},
+		{
+			Source:                SourceAntigravityCLI,
+			Label:                 "Antigravity CLI",
+			Badge:                 "A",
+			DefaultPermissionMode: PermissionModeSafe,
+		},
 	})
 }
 
@@ -135,12 +141,6 @@ func normalizeSourceInfo(info SourceInfo) SourceInfo {
 	if info.ResumeLabel == "" {
 		info.ResumeLabel = fallback.ResumeLabel
 	}
-	if strings.TrimSpace(info.LightColor) == "" {
-		info.LightColor = fallback.LightColor
-	}
-	if strings.TrimSpace(info.DarkColor) == "" {
-		info.DarkColor = fallback.DarkColor
-	}
 	if info.DefaultPermissionMode == "" {
 		info.DefaultPermissionMode = PermissionModeSafe
 	}
@@ -157,8 +157,6 @@ func fallbackSourceInfo(source Source) SourceInfo {
 		Label:                 label,
 		Badge:                 "?",
 		ResumeLabel:           "Resume",
-		LightColor:            "242",
-		DarkColor:             "241",
 		DefaultPermissionMode: PermissionModeSafe,
 	}
 }

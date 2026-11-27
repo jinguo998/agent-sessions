@@ -20,6 +20,7 @@ import (
 	"github.com/jinguo998/claude-sessions/internal/platform/editor"
 	"github.com/jinguo998/claude-sessions/internal/platform/shell"
 	"github.com/jinguo998/claude-sessions/internal/platform/terminal"
+	platformtrace "github.com/jinguo998/claude-sessions/internal/platform/trace"
 	"github.com/jinguo998/claude-sessions/internal/source"
 	"github.com/jinguo998/claude-sessions/internal/source/antigravity"
 	"github.com/jinguo998/claude-sessions/internal/source/claude"
@@ -34,11 +35,19 @@ import (
 
 const zshInit = `# claude-sessions shell integration
 cs() {
-    command claude-sessions "$@"
-    local _cs_cd="/tmp/claude-sessions-cd"
-    if [ -f "$_cs_cd" ]; then
-        cd "$(cat "$_cs_cd")" && rm -f "$_cs_cd"
+    local _cs_cd
+    local _cs_status
+    _cs_cd="$(mktemp "${TMPDIR:-/tmp}/claude-sessions-cd.XXXXXX")" || {
+        command claude-sessions "$@"
+        return $?
+    }
+    CLAUDE_SESSIONS_CD_FILE="$_cs_cd" command claude-sessions "$@"
+    _cs_status=$?
+    if [ -s "$_cs_cd" ]; then
+        cd "$(cat "$_cs_cd")" || true
     fi
+    rm -f "$_cs_cd"
+    return $_cs_status
 }
 
 # Run pending picker handoffs after ZLE has released the terminal.
@@ -86,20 +95,33 @@ bindkey '^s' _claude_sessions_pick
 
 const bashInit = `# claude-sessions shell integration
 cs() {
-    command claude-sessions "$@"
-    local _cs_cd="/tmp/claude-sessions-cd"
-    if [ -f "$_cs_cd" ]; then
-        cd "$(cat "$_cs_cd")" && rm -f "$_cs_cd"
+    local _cs_cd
+    local _cs_status
+    _cs_cd="$(mktemp "${TMPDIR:-/tmp}/claude-sessions-cd.XXXXXX")" || {
+        command claude-sessions "$@"
+        return $?
+    }
+    CLAUDE_SESSIONS_CD_FILE="$_cs_cd" command claude-sessions "$@"
+    _cs_status=$?
+    if [ -s "$_cs_cd" ]; then
+        cd "$(cat "$_cs_cd")" || true
     fi
+    rm -f "$_cs_cd"
+    return $_cs_status
 }
 
 # Fuzzy session picker (ctrl+s)
 _claude_sessions_pick() {
-    claude-sessions pick
-    local _cs_cd="/tmp/claude-sessions-cd"
-    if [ -f "$_cs_cd" ]; then
-        cd "$(cat "$_cs_cd")" && rm -f "$_cs_cd"
+    local _cs_cd
+    _cs_cd="$(mktemp "${TMPDIR:-/tmp}/claude-sessions-cd.XXXXXX")" || {
+        claude-sessions pick
+        return $?
+    }
+    CLAUDE_SESSIONS_CD_FILE="$_cs_cd" claude-sessions pick
+    if [ -s "$_cs_cd" ]; then
+        cd "$(cat "$_cs_cd")" || true
     fi
+    rm -f "$_cs_cd"
 }
 bind -x '"\C-s": _claude_sessions_pick'
 `
@@ -209,12 +231,12 @@ func main() {
 	if !ok {
 		return
 	}
-	result := m.Result()
-	if result.ID == "" {
+	target := m.Result()
+	if target.Session.ID == "" {
 		return
 	}
 
-	execResumeTarget(runtime.resume, targetFromTUIResult(result), "")
+	execResumeTarget(runtime.resume, target, "")
 }
 
 func pickHandoffPath(args []string) (string, error) {
@@ -246,10 +268,11 @@ type runtimeServices struct {
 }
 
 type runtimeSource struct {
-	Scanner source.Scanner
-	Preview source.PreviewParser
-	Resume  source.ResumePlanner
-	Archive source.ArchiveSpecifier
+	Describer source.Describer
+	Scanner   source.Scanner
+	Preview   source.PreviewParser
+	Resume    source.ResumePlanner
+	Archive   source.ArchiveSpecifier
 }
 
 func newRuntime() runtimeServices {
@@ -261,29 +284,33 @@ func newRuntime() runtimeServices {
 	ide, cli := antigravity.NewIDE(), antigravity.NewCLI()
 	sources := []runtimeSource{
 		{
-			Scanner: claudeAdapter,
-			Preview: claudeAdapter,
-			Resume:  claudeAdapter,
-			Archive: claudeAdapter,
+			Describer: claudeAdapter,
+			Scanner:   claudeAdapter,
+			Preview:   claudeAdapter,
+			Resume:    claudeAdapter,
+			Archive:   claudeAdapter,
 		},
 		{
-			Scanner: codexAdapter,
-			Preview: codexAdapter,
-			Resume:  codexAdapter,
-			Archive: codexAdapter,
+			Describer: codexAdapter,
+			Scanner:   codexAdapter,
+			Preview:   codexAdapter,
+			Resume:    codexAdapter,
+			Archive:   codexAdapter,
 		},
 		{
-			Scanner: openCodeAdapter,
-			Preview: openCodeAdapter,
-			Resume:  openCodeAdapter,
+			Describer: openCodeAdapter,
+			Scanner:   openCodeAdapter,
+			Preview:   openCodeAdapter,
+			Resume:    openCodeAdapter,
 		},
-		{Scanner: ide, Preview: ide, Resume: ide},
-		{Scanner: cli, Preview: cli, Resume: cli},
+		{Describer: ide, Scanner: ide, Preview: ide, Resume: ide},
+		{Describer: cli, Scanner: cli, Preview: cli, Resume: cli},
 	}
 	scanners := make([]source.Scanner, 0, len(sources))
 	previewParsers := make([]source.PreviewParser, 0, len(sources))
 	resumePlanners := make([]source.ResumePlanner, 0, len(sources))
 	archiveSpecifiers := make([]source.ArchiveSpecifier, 0, len(sources))
+	sourceInfos := make([]session.SourceInfo, 0, len(sources))
 	for _, src := range sources {
 		if src.Scanner != nil {
 			scanners = append(scanners, src.Scanner)
@@ -296,6 +323,19 @@ func newRuntime() runtimeServices {
 		}
 		if src.Archive != nil {
 			archiveSpecifiers = append(archiveSpecifiers, src.Archive)
+		}
+		if src.Describer != nil {
+			desc := src.Describer.Descriptor()
+			sourceInfos = append(sourceInfos, session.SourceInfo{
+				Source:                   desc.Source,
+				Label:                    desc.Label,
+				Badge:                    desc.Badge,
+				ResumeLabel:              desc.ResumeLabel,
+				DefaultPermissionMode:    desc.DefaultPermissionMode,
+				SupportsSafeResumeAction: desc.SupportsSafeResumeAction,
+				SupportsFork:             desc.SupportsFork,
+				SupportsArchive:          src.Archive != nil,
+			})
 		}
 	}
 
@@ -318,34 +358,10 @@ func newRuntime() runtimeServices {
 		Archive:   archiveSvc,
 		Clipboard: clipboard.NewSystem(),
 		Editor:    editor.NewSystem(),
-		Sources:   session.DefaultSourceRegistry(),
+		Tracer:    platformtrace.NewFromEnv(),
+		Sources:   session.NewSourceRegistry(sourceInfos),
 	}
 	return runtimeServices{scan: scanRepo, resume: resumeSvc, tui: tuiServices}
-}
-
-func targetFromTUIResult(result tui.Result) domain.ResumeTarget {
-	action := domain.ResumeActionResume
-	if result.Fork {
-		action = domain.ResumeActionFork
-	}
-	if result.CdOnly {
-		action = domain.ResumeActionCd
-	}
-	mode := result.PermissionMode
-	if mode == "" {
-		mode = domain.PermissionModeSafe
-	}
-	return domain.ResumeTarget{
-		Session: domain.Session{
-			ID:          result.ID,
-			Source:      domain.Source(result.Source),
-			ProjectPath: result.Dir,
-			Client:      result.Client,
-			Title:       result.Title,
-		},
-		Action:         action,
-		PermissionMode: mode,
-	}
 }
 
 func execResumeTarget(service *appresume.Service, target domain.ResumeTarget, handoffPath string) {

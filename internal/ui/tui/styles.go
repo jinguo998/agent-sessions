@@ -1,11 +1,12 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
 
-// adaptive returns a color that works on both light and dark backgrounds.
-func adaptive(light, dark string) lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: light, Dark: dark}
-}
+	uishared "github.com/jinguo998/claude-sessions/internal/ui/shared"
+)
+
+var adaptive = uishared.Adaptive
 
 var (
 	accentColor    = adaptive("128", "170")
@@ -150,14 +151,6 @@ var (
 				Foreground(borderColor)
 
 	borderStyle = lipgloss.NewStyle().Foreground(borderColor)
-
-	claudeBadgeStyle = lipgloss.NewStyle().
-				Foreground(adaptive("27", "75")). // strong blue on light, bright blue on dark
-				Bold(true)
-
-	codexBadgeStyle = lipgloss.NewStyle().
-			Foreground(adaptive("22", "40")). // dark green on light, bright green on dark
-			Bold(true)
 
 	flashStyle = lipgloss.NewStyle().
 			Foreground(adaptive("255", "255")).

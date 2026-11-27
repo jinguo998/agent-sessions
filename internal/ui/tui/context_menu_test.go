@@ -8,14 +8,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 func testMenuSession() session.Session {
-	return session.Session{
+	return session.FromDomain(domain.Session{
 		ID:       "12345678-abcdef",
 		FirstMsg: "Very long session title",
 		Source:   session.SourceClaude,
-	}
+	}, "")
 }
 
 func TestNewContextMenuModelDefaultItems(t *testing.T) {
@@ -106,7 +107,7 @@ func TestContextMenuViewContainsTitleAndItems(t *testing.T) {
 }
 
 func TestContextMenuViewHandlesShortIDFallback(t *testing.T) {
-	c := NewContextMenuModel().Open(session.Session{ID: "abc", Source: session.SourceClaude}, 0, 0)
+	c := NewContextMenuModel().Open(session.FromDomain(domain.Session{ID: "abc", Source: session.SourceClaude}, ""), 0, 0)
 	view := stripANSI(c.View())
 
 	if !strings.Contains(view, "abc") {
@@ -115,11 +116,11 @@ func TestContextMenuViewHandlesShortIDFallback(t *testing.T) {
 }
 
 func TestContextMenuOpenHidesFastResumeForCodex(t *testing.T) {
-	sess := session.Session{
+	sess := session.FromDomain(domain.Session{
 		ID:       "codex-1",
 		FirstMsg: "Codex session",
 		Source:   session.SourceCodex,
-	}
+	}, "")
 
 	c := NewContextMenuModel().Open(sess, 0, 0)
 	if len(c.items) != 5 {
@@ -133,11 +134,11 @@ func TestContextMenuOpenHidesFastResumeForCodex(t *testing.T) {
 }
 
 func TestContextMenuHidesArchiveForUnsupportedSource(t *testing.T) {
-	sess := session.Session{
+	sess := session.FromDomain(domain.Session{
 		ID:       "opencode-1",
 		FirstMsg: "OpenCode session",
 		Source:   session.SourceOpenCode,
-	}
+	}, "")
 
 	c := NewContextMenuModel().Open(sess, 0, 0)
 	view := stripANSI(c.View())
@@ -151,7 +152,7 @@ func TestContextMenuHidesArchiveForUnsupportedSource(t *testing.T) {
 
 func TestAntigravityContextActions(t *testing.T) {
 	for _, kind := range []session.Source{session.SourceAntigravityIDE, session.SourceAntigravityCLI} {
-		view := stripANSI(NewContextMenuModel().Open(session.Session{ID: "history", Source: kind}, 0, 0).View())
+		view := stripANSI(NewContextMenuModel().Open(session.FromDomain(domain.Session{ID: "history", Source: kind}, ""), 0, 0).View())
 		if strings.Contains(view, "Fork") || strings.Contains(view, "Archive") ||
 			strings.Contains(view, "Open IDE") != (kind == session.SourceAntigravityIDE) ||
 			strings.Contains(view, "Resume") != (kind == session.SourceAntigravityCLI) {
