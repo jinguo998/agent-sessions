@@ -3,7 +3,7 @@ package model
 import (
 	"strings"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 type PermissionMode = domain.PermissionMode
@@ -33,7 +33,7 @@ type SourceRegistry struct {
 
 // DefaultSourceRegistry provides a fallback registry for zero-value UI models
 // and isolated unit tests. Production runtime wiring constructs the registry
-// directly from registered source adapters in cmd/claude-sessions.
+// directly from registered source adapters in cmd/agent-sessions.
 func DefaultSourceRegistry() SourceRegistry {
 	return NewSourceRegistry([]SourceInfo{
 		{

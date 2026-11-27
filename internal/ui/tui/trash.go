@@ -9,8 +9,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	apparchive "github.com/jinguo998/claude-sessions/internal/app/archive"
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	apparchive "github.com/jinguo998/agent-sessions/internal/app/archive"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
 )
 
 type TrashModel struct {

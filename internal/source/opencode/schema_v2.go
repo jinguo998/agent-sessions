@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 const schemaV2 = "v2"

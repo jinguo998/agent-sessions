@@ -3,8 +3,8 @@ package picker
 import (
 	"strings"
 
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	appquery "github.com/jinguo998/claude-sessions/internal/app/query"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	appquery "github.com/jinguo998/agent-sessions/internal/app/query"
 )
 
 // MatchResult holds a matched session with the rune positions of matched

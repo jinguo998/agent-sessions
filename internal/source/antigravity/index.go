@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 )

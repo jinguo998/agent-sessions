@@ -10,15 +10,15 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	apparchive "github.com/jinguo998/claude-sessions/internal/app/archive"
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	appscan "github.com/jinguo998/claude-sessions/internal/app/scan"
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	"github.com/jinguo998/claude-sessions/internal/source"
-	"github.com/jinguo998/claude-sessions/internal/source/claude"
-	"github.com/jinguo998/claude-sessions/internal/source/codex"
-	"github.com/jinguo998/claude-sessions/internal/storage"
-	storagetrash "github.com/jinguo998/claude-sessions/internal/storage/trash"
+	apparchive "github.com/jinguo998/agent-sessions/internal/app/archive"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	appscan "github.com/jinguo998/agent-sessions/internal/app/scan"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/source/claude"
+	"github.com/jinguo998/agent-sessions/internal/source/codex"
+	"github.com/jinguo998/agent-sessions/internal/storage"
+	storagetrash "github.com/jinguo998/agent-sessions/internal/storage/trash"
 )
 
 func testArchiveService(home string) *apparchive.Service {
@@ -803,7 +803,7 @@ func TestModelDeleteConfirm(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("confirm delete should trigger reload cmd")
 	}
-	archiveRoot := filepath.Join(tmpHome, ".claude-sessions-trash")
+	archiveRoot := filepath.Join(tmpHome, ".agent-sessions-trash")
 	entries, err := os.ReadDir(archiveRoot)
 	if err != nil {
 		t.Fatalf("ReadDir(archiveRoot) error = %v", err)

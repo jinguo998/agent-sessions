@@ -8,8 +8,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	appstats "github.com/jinguo998/claude-sessions/internal/app/stats"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	appstats "github.com/jinguo998/agent-sessions/internal/app/stats"
 )
 
 type statsBucket = appstats.Bucket

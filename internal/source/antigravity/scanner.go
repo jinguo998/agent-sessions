@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	"github.com/jinguo998/claude-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/source"
 )
 
 type Adapter struct{ kind domain.Source }

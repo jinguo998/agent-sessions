@@ -4,8 +4,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/jinguo998/claude-sessions/internal/app/model"
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/app/model"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 type IndexedSession struct {

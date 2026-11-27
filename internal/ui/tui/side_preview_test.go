@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 func TestSidePreviewLoadSessionReplacesStaleLinesWithLoading(t *testing.T) {

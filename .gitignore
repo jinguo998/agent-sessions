@@ -1,5 +1,5 @@
 # Binary and release artifacts
-/claude-sessions
+/agent-sessions
 dist/
 
 # IDE

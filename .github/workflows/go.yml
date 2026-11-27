@@ -75,4 +75,4 @@ jobs:
         run: go test -race ./...
 
       - name: Build
-        run: go build -trimpath -o claude-sessions ./cmd/claude-sessions
+        run: go build -trimpath -o agent-sessions ./cmd/agent-sessions

@@ -3,7 +3,7 @@ package storage
 import (
 	"time"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 // CacheFingerprint uniquely validates whether a cached session entry is still fresh.

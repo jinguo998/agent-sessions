@@ -9,11 +9,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	"github.com/jinguo998/claude-sessions/internal/app/ports"
-	apppreview "github.com/jinguo998/claude-sessions/internal/app/preview"
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	uishared "github.com/jinguo998/claude-sessions/internal/ui/shared"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	"github.com/jinguo998/agent-sessions/internal/app/ports"
+	apppreview "github.com/jinguo998/agent-sessions/internal/app/preview"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	uishared "github.com/jinguo998/agent-sessions/internal/ui/shared"
 )
 
 var (

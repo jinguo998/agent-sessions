@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	"github.com/jinguo998/claude-sessions/internal/source"
-	"github.com/jinguo998/claude-sessions/internal/storage"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/storage"
 )
 
 type Item = storage.ArchivedSession

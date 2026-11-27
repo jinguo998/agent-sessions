@@ -16,7 +16,7 @@ body:
       label: Steps to reproduce
       description: How can we reproduce this issue?
       placeholder: |
-        1. Run `claude-sessions`
+        1. Run `agent-sessions`
         2. Press ...
         3. Observe ...
     validations:
@@ -43,9 +43,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: claude-sessions version
-      description: Output of `claude-sessions --version`
-      placeholder: "claude-sessions v0.3.0"
+      label: agent-sessions version
+      description: Output of `agent-sessions --version`
+      placeholder: "agent-sessions v0.4.0"
     validations:
       required: true
 

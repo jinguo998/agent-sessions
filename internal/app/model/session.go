@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 type Source = domain.Source

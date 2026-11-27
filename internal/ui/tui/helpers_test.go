@@ -14,12 +14,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	apppreview "github.com/jinguo998/claude-sessions/internal/app/preview"
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	"github.com/jinguo998/claude-sessions/internal/source"
-	"github.com/jinguo998/claude-sessions/internal/source/claude"
-	"github.com/jinguo998/claude-sessions/internal/source/codex"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	apppreview "github.com/jinguo998/agent-sessions/internal/app/preview"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/source/claude"
+	"github.com/jinguo998/agent-sessions/internal/source/codex"
 )
 
 var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -220,13 +220,13 @@ func TestCompactSidePreviewMessagesTruncatesLongText(t *testing.T) {
 }
 
 func TestLoadSidePreviewContentPerformanceFromEnv(t *testing.T) {
-	path := os.Getenv("CLAUDE_SESSIONS_PERF_FILE")
+	path := os.Getenv("AGENT_SESSIONS_PERF_FILE")
 	if path == "" {
-		t.Skip("set CLAUDE_SESSIONS_PERF_FILE to benchmark a real session JSONL")
+		t.Skip("set AGENT_SESSIONS_PERF_FILE to benchmark a real session JSONL")
 	}
 
 	source := session.SourceCodex
-	if os.Getenv("CLAUDE_SESSIONS_PERF_SOURCE") == "claude" {
+	if os.Getenv("AGENT_SESSIONS_PERF_SOURCE") == "claude" {
 		source = session.SourceClaude
 	}
 
@@ -239,10 +239,10 @@ func TestLoadSidePreviewContentPerformanceFromEnv(t *testing.T) {
 	t.Logf("LoadSidePreviewContent(%s) took %s, content=%d bytes, lines=%d",
 		filepath.Base(path), elapsed, len(result.content), strings.Count(result.content, "\n")+1)
 
-	if maxMS := os.Getenv("CLAUDE_SESSIONS_PERF_MAX_MS"); maxMS != "" {
+	if maxMS := os.Getenv("AGENT_SESSIONS_PERF_MAX_MS"); maxMS != "" {
 		limitMS, err := strconv.Atoi(maxMS)
 		if err != nil {
-			t.Fatalf("invalid CLAUDE_SESSIONS_PERF_MAX_MS=%q: %v", maxMS, err)
+			t.Fatalf("invalid AGENT_SESSIONS_PERF_MAX_MS=%q: %v", maxMS, err)
 		}
 		if elapsed > time.Duration(limitMS)*time.Millisecond {
 			t.Fatalf("side preview render took %s, want <= %dms", elapsed, limitMS)

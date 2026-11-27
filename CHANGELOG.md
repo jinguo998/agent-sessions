@@ -15,11 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking**: Renamed the repository, Go module (`github.com/jinguo998/agent-sessions`), CLI binary (`agent-sessions`), shell alias (`asess`), environment variables (`AGENT_SESSIONS_*`), cache directory (`agent-sessions`), and trash directory (`~/.agent-sessions-trash`) from `claude-sessions` to `agent-sessions`.
 - Unified source capability registration via `source.Describer` in the composition root and moved terminal color palettes out of `internal/app/model` into `internal/ui/shared`.
 - Upgraded `storage.MetadataCache` to validate `CacheFingerprint` (`Size`, `ModTime`, `MetadataKey`) and promote scan epochs on `Save()` so `Ctrl+R` refreshes reuse in-memory cache.
 - Eliminated lossy `tui.Result` handoff by returning `domain.ResumeTarget` directly, embedded `domain.Session` in `model.Session`, and removed terminal display-width dependencies from `internal/app/stats`.
 - Extracted shared UI formatting/theme helpers into `internal/ui/shared` and moved runtime tracing to `internal/platform/trace` behind `ports.Tracer`.
-- Surfaced partial scan warnings in the TUI status bar and isolated shell `cs` directory handoff with per-invocation `mktemp` files (`CLAUDE_SESSIONS_CD_FILE`).
+- Surfaced partial scan warnings in the TUI status bar and isolated shell `asess` directory handoff with per-invocation `mktemp` files (`AGENT_SESSIONS_CD_FILE`).
 
 ## [0.3.0] - 2026-11-26
 
@@ -49,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zsh and Bash shell integration (`claude-sessions init`) with `cs` alias and `Ctrl+S` fuzzy picker binding.
 - Automated Linux and macOS (`amd64` / `arm64`) release archives with SHA-256 checksums via GitHub Actions.
 
-[Unreleased]: https://github.com/jinguo998/claude-sessions/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/jinguo998/claude-sessions/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/jinguo998/claude-sessions/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/jinguo998/claude-sessions/releases/tag/v0.1.0
+[Unreleased]: https://github.com/jinguo998/agent-sessions/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jinguo998/agent-sessions/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/jinguo998/agent-sessions/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/jinguo998/agent-sessions/releases/tag/v0.1.0

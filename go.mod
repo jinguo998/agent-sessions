@@ -1,4 +1,4 @@
-module github.com/jinguo998/claude-sessions
+module github.com/jinguo998/agent-sessions
 
 go 1.24.2
 

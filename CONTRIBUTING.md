@@ -1,4 +1,4 @@
-# Contributing to claude-sessions
+# Contributing to agent-sessions
 
 ## Prerequisites
 
@@ -9,14 +9,14 @@
 
 ```bash
 # Clone
-git clone git@github.com:jinguo998/claude-sessions.git
-cd claude-sessions
+git clone git@github.com:jinguo998/agent-sessions.git
+cd agent-sessions
 
 # Build
 make build
 
 # Run
-./claude-sessions
+./agent-sessions
 
 # Format
 make fmt
@@ -45,7 +45,7 @@ make test-race
 ## Code Structure
 
 ```
-cmd/claude-sessions/main.go    Entry point
+cmd/agent-sessions/main.go     Entry point
 internal/domain/               Source-agnostic session model
 internal/source/               Source capability interfaces and adapters
 internal/app/                  Scan, preview, query, stats, archive, resume services

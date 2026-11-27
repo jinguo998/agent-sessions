@@ -12,7 +12,7 @@ This file is only a routing map for coding agents. Do not duplicate the full pro
 
 ## Code Areas
 
-- Entrypoint and shell integration: `cmd/claude-sessions/`
+- Entrypoint and shell integration: `cmd/agent-sessions/`
 - Source-agnostic session model: `internal/domain/`
 - Source capability interfaces and shared source helpers: `internal/source/`
 - Source adapters: `internal/source/claude/`, `internal/source/codex/`, `internal/source/opencode/`, `internal/source/antigravity/`

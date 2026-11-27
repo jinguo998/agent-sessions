@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jinguo998/claude-sessions/internal/app/ports"
+	"github.com/jinguo998/agent-sessions/internal/app/ports"
 )
 
-const EnvVar = "CLAUDE_SESSIONS_TRACE"
+const EnvVar = "AGENT_SESSIONS_TRACE"
 
 // FileTracer writes structured JSONL trace events to a local file.
 type FileTracer struct {
@@ -20,7 +20,7 @@ type FileTracer struct {
 
 var _ ports.Tracer = (*FileTracer)(nil)
 
-// NewFromEnv returns a FileTracer configured from CLAUDE_SESSIONS_TRACE.
+// NewFromEnv returns a FileTracer configured from AGENT_SESSIONS_TRACE.
 // When the environment variable is unset, the returned tracer is disabled.
 func NewFromEnv() *FileTracer {
 	return NewFile(os.Getenv(EnvVar))

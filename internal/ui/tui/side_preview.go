@@ -7,9 +7,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	"github.com/jinguo998/claude-sessions/internal/app/ports"
-	apppreview "github.com/jinguo998/claude-sessions/internal/app/preview"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	"github.com/jinguo998/agent-sessions/internal/app/ports"
+	apppreview "github.com/jinguo998/agent-sessions/internal/app/preview"
 )
 
 var latestSidePreviewToken atomic.Uint64

@@ -60,7 +60,7 @@ jobs:
 
           for target in "${targets[@]}"; do
             read -r goos goarch <<<"$target"
-            archive="claude-sessions_${version}_${goos}_${goarch}"
+            archive="agent-sessions_${version}_${goos}_${goarch}"
             package_dir="$stage_root/$archive"
             mkdir -p "$package_dir"
 
@@ -68,15 +68,15 @@ jobs:
               go build \
                 -trimpath \
                 -ldflags "-s -w -X main.version=$version" \
-                -o "$package_dir/claude-sessions" \
-                ./cmd/claude-sessions
+                -o "$package_dir/agent-sessions" \
+                ./cmd/agent-sessions
 
             cp README.md LICENSE "$package_dir/"
             tar -C "$stage_root" -czf "dist/$archive.tar.gz" "$archive"
           done
 
-          version_output="$("$stage_root/claude-sessions_${version}_linux_amd64/claude-sessions" --version)"
-          test "$version_output" = "claude-sessions $version"
+          version_output="$("$stage_root/agent-sessions_${version}_linux_amd64/agent-sessions" --version)"
+          test "$version_output" = "agent-sessions $version"
 
           (
             cd dist

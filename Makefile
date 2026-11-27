@@ -1,5 +1,5 @@
-BINARY  := claude-sessions
-PKG     := ./cmd/claude-sessions
+BINARY  := agent-sessions
+PKG     := ./cmd/agent-sessions
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 .PHONY: build test test-race cover fmt fmt-check lint arch check clean install
 

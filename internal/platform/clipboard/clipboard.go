@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/jinguo998/claude-sessions/internal/app/ports"
+	"github.com/jinguo998/agent-sessions/internal/app/ports"
 )
 
 type System struct{}
