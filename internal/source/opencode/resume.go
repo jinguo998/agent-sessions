@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	"github.com/jinguo998/claude-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/source"
 )
 
 func (a Adapter) Descriptor() source.Descriptor {

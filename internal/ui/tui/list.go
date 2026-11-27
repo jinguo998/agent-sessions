@@ -10,10 +10,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	appquery "github.com/jinguo998/claude-sessions/internal/app/query"
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	uishared "github.com/jinguo998/claude-sessions/internal/ui/shared"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	appquery "github.com/jinguo998/agent-sessions/internal/app/query"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	uishared "github.com/jinguo998/agent-sessions/internal/ui/shared"
 )
 
 // sortMode controls the ordering of sessions in the list.

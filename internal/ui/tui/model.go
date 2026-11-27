@@ -9,12 +9,12 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	apparchive "github.com/jinguo998/claude-sessions/internal/app/archive"
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	"github.com/jinguo998/claude-sessions/internal/app/ports"
-	apppreview "github.com/jinguo998/claude-sessions/internal/app/preview"
-	appscan "github.com/jinguo998/claude-sessions/internal/app/scan"
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	apparchive "github.com/jinguo998/agent-sessions/internal/app/archive"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	"github.com/jinguo998/agent-sessions/internal/app/ports"
+	apppreview "github.com/jinguo998/agent-sessions/internal/app/preview"
+	appscan "github.com/jinguo998/agent-sessions/internal/app/scan"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 type viewState int

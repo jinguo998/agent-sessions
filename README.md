@@ -1,8 +1,8 @@
-# claude-sessions
+# agent-sessions
 
-[![CI](https://github.com/jinguo998/claude-sessions/actions/workflows/go.yml/badge.svg)](https://github.com/jinguo998/claude-sessions/actions/workflows/go.yml)
-[![CodeQL](https://github.com/jinguo998/claude-sessions/actions/workflows/codeql.yml/badge.svg)](https://github.com/jinguo998/claude-sessions/actions/workflows/codeql.yml)
-[![Release](https://img.shields.io/github/v/release/jinguo998/claude-sessions)](https://github.com/jinguo998/claude-sessions/releases/latest)
+[![CI](https://github.com/jinguo998/agent-sessions/actions/workflows/go.yml/badge.svg)](https://github.com/jinguo998/agent-sessions/actions/workflows/go.yml)
+[![CodeQL](https://github.com/jinguo998/agent-sessions/actions/workflows/codeql.yml/badge.svg)](https://github.com/jinguo998/agent-sessions/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/jinguo998/agent-sessions)](https://github.com/jinguo998/agent-sessions/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Browse, preview, search, and reopen Claude Code, Codex CLI, OpenCode, Antigravity IDE, and Antigravity CLI sessions across projects from a terminal dashboard.
@@ -12,42 +12,42 @@ Browse, preview, search, and reopen Claude Code, Codex CLI, OpenCode, Antigravit
 Install the prebuilt binary with Homebrew:
 
 ```bash
-brew install jinguo998/tap/claude-sessions
+brew install jinguo998/tap/agent-sessions
 ```
 
 Or download a release directly.
 
 Prebuilt binaries are available for Linux and macOS on both amd64 and arm64:
 
-[Download the latest release](https://github.com/jinguo998/claude-sessions/releases/latest)
+[Download the latest release](https://github.com/jinguo998/agent-sessions/releases/latest)
 
 Each release includes a `checksums.txt` file for SHA-256 verification.
 
 Or install with Go:
 
 ```bash
-go install github.com/jinguo998/claude-sessions/cmd/claude-sessions@latest
+go install github.com/jinguo998/agent-sessions/cmd/agent-sessions@latest
 ```
 
 Install a pinned release when tags are available:
 
 ```bash
-# replace v0.1.0 with the release tag you want
-go install github.com/jinguo998/claude-sessions/cmd/claude-sessions@v0.1.0
+# replace v0.4.0 with the release tag you want
+go install github.com/jinguo998/agent-sessions/cmd/agent-sessions@v0.4.0
 ```
 
 Or build from source:
 
 ```bash
-git clone git@github.com:jinguo998/claude-sessions.git
-cd claude-sessions
+git clone git@github.com:jinguo998/agent-sessions.git
+cd agent-sessions
 make build
 ```
 
 Check the installed version:
 
 ```bash
-claude-sessions --version
+agent-sessions --version
 ```
 
 ## Setup (optional)
@@ -55,15 +55,15 @@ claude-sessions --version
 For "cd to project" to work in the current shell, add to `~/.zshrc`:
 
 ```bash
-eval "$(claude-sessions init zsh)"
+eval "$(agent-sessions init zsh)"
 ```
 
-This creates a `cs` alias. Without it, "cd to project" opens a new shell in the target directory.
+This creates an `asess` alias and binds `Ctrl+S` to the fuzzy session picker. Without it, "cd to project" opens a new shell in the target directory.
 
 ## Usage
 
 ```bash
-claude-sessions
+agent-sessions
 ```
 
 ### List View
@@ -136,7 +136,7 @@ Stats use the current list filters and search. They show token totals, average t
 
 ### Trash View
 
-Archived Claude and Codex sessions live under `~/.claude-sessions-trash` with their original JSONL, side directory, and `metadata.json`.
+Archived Claude and Codex sessions live under `~/.agent-sessions-trash` with their original JSONL, side directory, and `metadata.json`.
 
 Archive and restore are available for Claude and Codex sessions. OpenCode and Antigravity manage their own history stores.
 
@@ -169,7 +169,7 @@ Archive and restore are available for Claude and Codex sessions. OpenCode and An
 ## Architecture
 
 ```
-cmd/claude-sessions/       Entry point, shell integration, composition root
+cmd/agent-sessions/        Entry point, shell integration, composition root
 internal/
   domain/                  Source-agnostic session model and resume plans
   source/                  Source capability interfaces
@@ -185,7 +185,7 @@ internal/
   platform/                Shell, clipboard, editor, and terminal implementations
 ```
 
-`cmd/claude-sessions` wires source adapters, storage, app services, platform implementations, and UI models. UI packages consume app services/view models and do not instantiate source, storage, or platform implementations directly.
+`cmd/agent-sessions` wires source adapters, storage, app services, platform implementations, and UI models. UI packages consume app services/view models and do not instantiate source, storage, or platform implementations directly.
 
 See [docs/modules.md](docs/modules.md) for dependency rules and module boundaries.
 

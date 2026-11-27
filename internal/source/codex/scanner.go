@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	"github.com/jinguo998/claude-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/source"
 )
 
 // codexUUIDRe matches the UUID portion at the end of a Codex session filename.

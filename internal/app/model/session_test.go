@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 func TestSessionFormatDuration(t *testing.T) {

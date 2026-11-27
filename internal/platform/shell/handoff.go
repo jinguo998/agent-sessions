@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 // WritePlan stores a resume plan for a shell to execute after its interactive

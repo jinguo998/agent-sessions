@@ -29,13 +29,13 @@ func TestZshPickerResumeGetsTTYInTmux(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	claudeSessions := os.Getenv("CLAUDE_SESSIONS_SMOKE_BINARY")
-	if claudeSessions == "" {
-		claudeSessions = filepath.Join(binDir, "claude-sessions")
-		cmd := exec.Command("go", "build", "-o", claudeSessions, "./cmd/claude-sessions")
+	agentSessions := os.Getenv("AGENT_SESSIONS_SMOKE_BINARY")
+	if agentSessions == "" {
+		agentSessions = filepath.Join(binDir, "agent-sessions")
+		cmd := exec.Command("go", "build", "-o", agentSessions, "./cmd/agent-sessions")
 		cmd.Dir = root
 		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("build claude-sessions: %v\n%s", err, out)
+			t.Fatalf("build agent-sessions: %v\n%s", err, out)
 		}
 	}
 
@@ -73,7 +73,7 @@ fi
 	sessionPath := filepath.Join(sessionsDir, "rollout-2026-07-10T00-00-00-"+sessionID+".jsonl")
 	writeCodexFixture(t, sessionPath, sessionID, project)
 
-	socket := fmt.Sprintf("claude-sessions-test-%d", time.Now().UnixNano())
+	socket := fmt.Sprintf("agent-sessions-test-%d", time.Now().UnixNano())
 	tmux := func(args ...string) *exec.Cmd {
 		return exec.Command("tmux", append([]string{"-L", socket}, args...)...)
 	}
@@ -89,7 +89,7 @@ fi
 	}
 
 	setupPath := filepath.Join(tmp, "setup.zsh")
-	setupScript := fmt.Sprintf("export HOME=%q\nexport PATH=%q\nexport PROBE_FILE=%q\nexport CODEX_HOME=%q\nstty -ixon\neval \"$(%q init zsh)\"\nprint -r -- INIT_READY\n", home, pathEnv, probePath, codexHome, claudeSessions)
+	setupScript := fmt.Sprintf("export HOME=%q\nexport PATH=%q\nexport PROBE_FILE=%q\nexport CODEX_HOME=%q\nstty -ixon\neval \"$(%q init zsh)\"\nprint -r -- INIT_READY\n", home, pathEnv, probePath, codexHome, agentSessions)
 	if err := os.WriteFile(setupPath, []byte(setupScript), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ fi
 				t.Fatalf("unexpected Codex arguments:\n%s", got)
 			}
 			pane := captureTmuxPane(t, tmux, "picker")
-			for _, leaked := range []string{"__exec-handoff", "claude-sessions-resume."} {
+			for _, leaked := range []string{"__exec-handoff", "agent-sessions-resume."} {
 				if strings.Contains(pane, leaked) {
 					t.Fatalf("internal handoff %q leaked into the terminal:\n%s", leaked, pane)
 				}

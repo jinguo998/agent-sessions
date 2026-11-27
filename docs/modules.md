@@ -13,17 +13,17 @@ This document maps the current layered session manager architecture.
 - `internal/platform`: concrete shell, clipboard, editor, terminal, and trace implementations.
 - `internal/ui/shared`: shared terminal formatting and source color theme helpers; depends on `domain`/`app/model` only.
 - `internal/ui`: TUI and picker presentation; depends on app services/view models and `ui/shared`, never source/storage/platform implementations.
-- `cmd/claude-sessions`: the only composition root; constructs adapters, stores, services, platform implementations, and UI models.
+- `cmd/agent-sessions`: the only composition root; constructs adapters, stores, services, platform implementations, and UI models.
 
 Run `make arch` to check these boundaries.
 
-## `cmd/claude-sessions`
+## `cmd/agent-sessions`
 
 Entrypoint, command routing, shell integration, runtime wiring, and final process handoff.
 
 - Creates source adapters, cache/trash stores, app services, platform implementations, and UI services.
 - Handles `init`, `pick`, default TUI mode, version output, and resume/fork/cd execution.
-- Direct TUI and command-line picker resumes use `syscall.Exec`; shell `cs` cd handoff uses a per-invocation temporary file passed via `CLAUDE_SESSIONS_CD_FILE` (falling back to `/tmp/claude-sessions-cd`).
+- Direct TUI and command-line picker resumes use `syscall.Exec`; shell `asess` cd handoff uses a per-invocation temporary file passed via `AGENT_SESSIONS_CD_FILE` (falling back to `/tmp/agent-sessions-cd`).
 - The Zsh `Ctrl+S` widget cannot exec an interactive CLI while ZLE owns stdin.
   It writes a one-shot `ResumePlan` handoff, exits the picker, and schedules the
   handoff consumer with `zle accept-line` so the resumed CLI starts from the
@@ -108,7 +108,7 @@ Full-screen Bubble Tea presentation.
 
 ## `internal/ui/picker`
 
-Inline fzf-style picker for `claude-sessions pick`.
+Inline fzf-style picker for `agent-sessions pick`.
 
 - Consumes app session models.
 - Performs presentation-level matching/highlighting.
@@ -122,7 +122,7 @@ Environment-specific implementations:
 - `editor`: `$EDITOR` launcher.
 - `shell`: process exec, per-invocation cd handoff, and one-shot resume-plan handoff.
 - `terminal`: terminal theme detection.
-- `trace`: JSONL runtime trace logger (`CLAUDE_SESSIONS_TRACE`).
+- `trace`: JSONL runtime trace logger (`AGENT_SESSIONS_TRACE`).
 
 Platform packages do not know about UI or source implementations.
 

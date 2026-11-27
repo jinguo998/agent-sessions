@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
 )
 
 type ProjectRow struct {

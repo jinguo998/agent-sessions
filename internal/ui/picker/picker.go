@@ -8,8 +8,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	uishared "github.com/jinguo998/claude-sessions/internal/ui/shared"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	uishared "github.com/jinguo998/agent-sessions/internal/ui/shared"
 )
 
 var (

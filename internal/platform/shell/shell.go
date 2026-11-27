@@ -6,16 +6,16 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 const (
 	// CdHandoffEnv carries a per-invocation temporary file path created by the
-	// shell wrapper (cs / picker) so concurrent terminals never race on a shared
+	// shell wrapper (asess / picker) so concurrent terminals never race on a shared
 	// /tmp file.
-	CdHandoffEnv = "CLAUDE_SESSIONS_CD_FILE"
-	// CdHandoffFile is the legacy fallback path used when CdHandoffEnv is unset.
-	CdHandoffFile = "/tmp/claude-sessions-cd"
+	CdHandoffEnv = "AGENT_SESSIONS_CD_FILE"
+	// CdHandoffFile is the fallback path used when CdHandoffEnv is unset.
+	CdHandoffFile = "/tmp/agent-sessions-cd"
 )
 
 func cdHandoffTarget() (string, os.FileMode) {

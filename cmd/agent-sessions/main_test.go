@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	platformshell "github.com/jinguo998/claude-sessions/internal/platform/shell"
-	"github.com/jinguo998/claude-sessions/internal/ui/picker"
-	"github.com/jinguo998/claude-sessions/internal/ui/tui"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	platformshell "github.com/jinguo998/agent-sessions/internal/platform/shell"
+	"github.com/jinguo998/agent-sessions/internal/ui/picker"
+	"github.com/jinguo998/agent-sessions/internal/ui/tui"
 )
 
 func TestAntigravityThroughPickerAndTUI(t *testing.T) {
@@ -84,7 +84,7 @@ func captureMainOutput(t *testing.T, args ...string) string {
 		t.Fatalf("os.Pipe() error = %v", err)
 	}
 
-	os.Args = append([]string{"claude-sessions"}, args...)
+	os.Args = append([]string{"agent-sessions"}, args...)
 	os.Stdout = w
 
 	main()
@@ -115,10 +115,10 @@ func TestMainInitShellOutput(t *testing.T) {
 			if out != tt.want {
 				t.Fatalf("main init output = %q, want %q", out, tt.want)
 			}
-			if !strings.Contains(out, "cs() {") || !strings.Contains(out, `command claude-sessions "$@"`) {
+			if !strings.Contains(out, "asess() {") || !strings.Contains(out, `command agent-sessions "$@"`) {
 				t.Fatalf("init output missing shell wrapper: %q", out)
 			}
-			if !strings.Contains(out, "CLAUDE_SESSIONS_CD_FILE=") || !strings.Contains(out, "claude-sessions-cd.XXXXXX") {
+			if !strings.Contains(out, "AGENT_SESSIONS_CD_FILE=") || !strings.Contains(out, "agent-sessions-cd.XXXXXX") {
 				t.Fatalf("init output missing per-invocation cd handoff: %q", out)
 			}
 
@@ -140,14 +140,14 @@ func TestZshPickerDefersResumeUntilAfterZLE(t *testing.T) {
 			t.Fatalf("zsh picker must not redirect through %q:\n%s", forbidden, out)
 		}
 	}
-	if strings.Contains(out, `BUFFER="cs __exec-handoff`) {
+	if strings.Contains(out, `BUFFER="asess __exec-handoff`) {
 		t.Fatalf("zsh picker must not expose the handoff command through BUFFER:\n%s", out)
 	}
 	for _, want := range []string{
 		"pick --handoff",
 		"zle push-input",
 		"add-zsh-hook precmd",
-		"typeset -g _claude_sessions_pending_handoff",
+		"typeset -g _agent_sessions_pending_handoff",
 		`BUFFER=""`,
 		"zle accept-line",
 	} {
@@ -236,7 +236,7 @@ func TestMainVersionOutput(t *testing.T) {
 	for _, arg := range []string{"version", "--version", "-v"} {
 		t.Run(arg, func(t *testing.T) {
 			out := captureMainOutput(t, arg)
-			if out != "claude-sessions v1.2.3-test\n" {
+			if out != "agent-sessions v1.2.3-test\n" {
 				t.Fatalf("version output = %q", out)
 			}
 		})
@@ -244,7 +244,7 @@ func TestMainVersionOutput(t *testing.T) {
 }
 
 func TestNonInteractiveCommandsDoNotProbeTerminalAtPackageInit(t *testing.T) {
-	exe := filepath.Join(t.TempDir(), "claude-sessions")
+	exe := filepath.Join(t.TempDir(), "agent-sessions")
 	if err := exec.Command("go", "build", "-o", exe, ".").Run(); err != nil {
 		t.Fatalf("go build test binary failed: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestResolveShellConfig(t *testing.T) {
 func TestInstallShellInitTo(t *testing.T) {
 	t.Run("fresh install", func(t *testing.T) {
 		configFile := filepath.Join(t.TempDir(), ".zshrc")
-		evalLine := `eval "$(claude-sessions init zsh)"`
+		evalLine := `eval "$(agent-sessions init zsh)"`
 
 		res, err := installShellInitTo(configFile, evalLine)
 		if err != nil {
@@ -377,14 +377,14 @@ func TestInstallShellInitTo(t *testing.T) {
 		if !strings.Contains(string(content), evalLine) {
 			t.Errorf("config file should contain eval line, got: %s", content)
 		}
-		if !strings.Contains(string(content), "# claude-sessions shell integration") {
+		if !strings.Contains(string(content), "# agent-sessions shell integration") {
 			t.Error("config file should contain comment header")
 		}
 	})
 
 	t.Run("idempotent", func(t *testing.T) {
 		configFile := filepath.Join(t.TempDir(), ".zshrc")
-		evalLine := `eval "$(claude-sessions init zsh)"`
+		evalLine := `eval "$(agent-sessions init zsh)"`
 
 		// First install
 		_, err := installShellInitTo(configFile, evalLine)
@@ -413,7 +413,7 @@ func TestInstallShellInitTo(t *testing.T) {
 		existing := "# my existing config\nexport FOO=bar\n"
 		os.WriteFile(configFile, []byte(existing), 0644)
 
-		evalLine := `eval "$(claude-sessions init zsh)"`
+		evalLine := `eval "$(agent-sessions init zsh)"`
 		_, err := installShellInitTo(configFile, evalLine)
 		if err != nil {
 			t.Fatal(err)

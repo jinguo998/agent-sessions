@@ -10,127 +10,127 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	apparchive "github.com/jinguo998/claude-sessions/internal/app/archive"
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	apppreview "github.com/jinguo998/claude-sessions/internal/app/preview"
-	appresume "github.com/jinguo998/claude-sessions/internal/app/resume"
-	appscan "github.com/jinguo998/claude-sessions/internal/app/scan"
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	"github.com/jinguo998/claude-sessions/internal/platform/clipboard"
-	"github.com/jinguo998/claude-sessions/internal/platform/editor"
-	"github.com/jinguo998/claude-sessions/internal/platform/shell"
-	"github.com/jinguo998/claude-sessions/internal/platform/terminal"
-	platformtrace "github.com/jinguo998/claude-sessions/internal/platform/trace"
-	"github.com/jinguo998/claude-sessions/internal/source"
-	"github.com/jinguo998/claude-sessions/internal/source/antigravity"
-	"github.com/jinguo998/claude-sessions/internal/source/claude"
-	"github.com/jinguo998/claude-sessions/internal/source/codex"
-	"github.com/jinguo998/claude-sessions/internal/source/opencode"
-	"github.com/jinguo998/claude-sessions/internal/storage"
-	"github.com/jinguo998/claude-sessions/internal/storage/cache"
-	"github.com/jinguo998/claude-sessions/internal/storage/trash"
-	"github.com/jinguo998/claude-sessions/internal/ui/picker"
-	"github.com/jinguo998/claude-sessions/internal/ui/tui"
+	apparchive "github.com/jinguo998/agent-sessions/internal/app/archive"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	apppreview "github.com/jinguo998/agent-sessions/internal/app/preview"
+	appresume "github.com/jinguo998/agent-sessions/internal/app/resume"
+	appscan "github.com/jinguo998/agent-sessions/internal/app/scan"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/platform/clipboard"
+	"github.com/jinguo998/agent-sessions/internal/platform/editor"
+	"github.com/jinguo998/agent-sessions/internal/platform/shell"
+	"github.com/jinguo998/agent-sessions/internal/platform/terminal"
+	platformtrace "github.com/jinguo998/agent-sessions/internal/platform/trace"
+	"github.com/jinguo998/agent-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/source/antigravity"
+	"github.com/jinguo998/agent-sessions/internal/source/claude"
+	"github.com/jinguo998/agent-sessions/internal/source/codex"
+	"github.com/jinguo998/agent-sessions/internal/source/opencode"
+	"github.com/jinguo998/agent-sessions/internal/storage"
+	"github.com/jinguo998/agent-sessions/internal/storage/cache"
+	"github.com/jinguo998/agent-sessions/internal/storage/trash"
+	"github.com/jinguo998/agent-sessions/internal/ui/picker"
+	"github.com/jinguo998/agent-sessions/internal/ui/tui"
 )
 
-const zshInit = `# claude-sessions shell integration
-cs() {
-    local _cs_cd
-    local _cs_status
-    _cs_cd="$(mktemp "${TMPDIR:-/tmp}/claude-sessions-cd.XXXXXX")" || {
-        command claude-sessions "$@"
+const zshInit = `# agent-sessions shell integration
+asess() {
+    local _as_cd
+    local _as_status
+    _as_cd="$(mktemp "${TMPDIR:-/tmp}/agent-sessions-cd.XXXXXX")" || {
+        command agent-sessions "$@"
         return $?
     }
-    CLAUDE_SESSIONS_CD_FILE="$_cs_cd" command claude-sessions "$@"
-    _cs_status=$?
-    if [ -s "$_cs_cd" ]; then
-        cd "$(cat "$_cs_cd")" || true
+    AGENT_SESSIONS_CD_FILE="$_as_cd" command agent-sessions "$@"
+    _as_status=$?
+    if [ -s "$_as_cd" ]; then
+        cd "$(cat "$_as_cd")" || true
     fi
-    rm -f "$_cs_cd"
-    return $_cs_status
+    rm -f "$_as_cd"
+    return $_as_status
 }
 
 # Run pending picker handoffs after ZLE has released the terminal.
-_claude_sessions_run_handoff() {
-    local _cs_handoff="${_claude_sessions_pending_handoff:-}"
-    if [[ -z "$_cs_handoff" ]]; then
+_agent_sessions_run_handoff() {
+    local _as_handoff="${_agent_sessions_pending_handoff:-}"
+    if [[ -z "$_as_handoff" ]]; then
         return 0
     fi
-    unset _claude_sessions_pending_handoff
-    cs __exec-handoff "$_cs_handoff"
+    unset _agent_sessions_pending_handoff
+    asess __exec-handoff "$_as_handoff"
 }
 autoload -Uz add-zsh-hook
-add-zsh-hook precmd _claude_sessions_run_handoff
+add-zsh-hook precmd _agent_sessions_run_handoff
 
 # Fuzzy session picker (ctrl+s)
-_claude_sessions_pick() {
-    local _cs_saved_buffer="$BUFFER"
-    local _cs_saved_cursor="$CURSOR"
-    local _cs_handoff
-    local _cs_status
-    _cs_handoff="$(mktemp "${TMPDIR:-/tmp}/claude-sessions-resume.XXXXXX")" || {
+_agent_sessions_pick() {
+    local _as_saved_buffer="$BUFFER"
+    local _as_saved_cursor="$CURSOR"
+    local _as_handoff
+    local _as_status
+    _as_handoff="$(mktemp "${TMPDIR:-/tmp}/agent-sessions-resume.XXXXXX")" || {
         zle reset-prompt
         return 1
     }
-    command claude-sessions pick --handoff "$_cs_handoff"
-    _cs_status=$?
-    if (( _cs_status != 0 )) || [[ ! -s "$_cs_handoff" ]]; then
-        rm -f "$_cs_handoff"
-        BUFFER="$_cs_saved_buffer"
-        CURSOR="$_cs_saved_cursor"
+    command agent-sessions pick --handoff "$_as_handoff"
+    _as_status=$?
+    if (( _as_status != 0 )) || [[ ! -s "$_as_handoff" ]]; then
+        rm -f "$_as_handoff"
+        BUFFER="$_as_saved_buffer"
+        CURSOR="$_as_saved_cursor"
         zle reset-prompt
-        return $_cs_status
+        return $_as_status
     fi
-    BUFFER="$_cs_saved_buffer"
-    CURSOR="$_cs_saved_cursor"
+    BUFFER="$_as_saved_buffer"
+    CURSOR="$_as_saved_cursor"
     zle push-input
-    typeset -g _claude_sessions_pending_handoff="$_cs_handoff"
+    typeset -g _agent_sessions_pending_handoff="$_as_handoff"
     BUFFER=""
     CURSOR=0
     zle accept-line
 }
-zle -N _claude_sessions_pick
-bindkey '^s' _claude_sessions_pick
+zle -N _agent_sessions_pick
+bindkey '^s' _agent_sessions_pick
 `
 
-const bashInit = `# claude-sessions shell integration
-cs() {
-    local _cs_cd
-    local _cs_status
-    _cs_cd="$(mktemp "${TMPDIR:-/tmp}/claude-sessions-cd.XXXXXX")" || {
-        command claude-sessions "$@"
+const bashInit = `# agent-sessions shell integration
+asess() {
+    local _as_cd
+    local _as_status
+    _as_cd="$(mktemp "${TMPDIR:-/tmp}/agent-sessions-cd.XXXXXX")" || {
+        command agent-sessions "$@"
         return $?
     }
-    CLAUDE_SESSIONS_CD_FILE="$_cs_cd" command claude-sessions "$@"
-    _cs_status=$?
-    if [ -s "$_cs_cd" ]; then
-        cd "$(cat "$_cs_cd")" || true
+    AGENT_SESSIONS_CD_FILE="$_as_cd" command agent-sessions "$@"
+    _as_status=$?
+    if [ -s "$_as_cd" ]; then
+        cd "$(cat "$_as_cd")" || true
     fi
-    rm -f "$_cs_cd"
-    return $_cs_status
+    rm -f "$_as_cd"
+    return $_as_status
 }
 
 # Fuzzy session picker (ctrl+s)
-_claude_sessions_pick() {
-    local _cs_cd
-    _cs_cd="$(mktemp "${TMPDIR:-/tmp}/claude-sessions-cd.XXXXXX")" || {
-        claude-sessions pick
+_agent_sessions_pick() {
+    local _as_cd
+    _as_cd="$(mktemp "${TMPDIR:-/tmp}/agent-sessions-cd.XXXXXX")" || {
+        agent-sessions pick
         return $?
     }
-    CLAUDE_SESSIONS_CD_FILE="$_cs_cd" claude-sessions pick
-    if [ -s "$_cs_cd" ]; then
-        cd "$(cat "$_cs_cd")" || true
+    AGENT_SESSIONS_CD_FILE="$_as_cd" agent-sessions pick
+    if [ -s "$_as_cd" ]; then
+        cd "$(cat "$_as_cd")" || true
     fi
-    rm -f "$_cs_cd"
+    rm -f "$_as_cd"
 }
-bind -x '"\C-s": _claude_sessions_pick'
+bind -x '"\C-s": _agent_sessions_pick'
 `
 
 var version = "dev"
 
 func main() {
 	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version" || os.Args[1] == "-v") {
-		fmt.Printf("claude-sessions %s\n", displayVersion())
+		fmt.Printf("agent-sessions %s\n", displayVersion())
 		return
 	}
 
@@ -158,7 +158,7 @@ func main() {
 
 	if len(os.Args) > 1 && os.Args[1] == "__exec-handoff" {
 		if len(os.Args) != 3 || os.Args[2] == "" {
-			fmt.Fprintln(os.Stderr, "usage: claude-sessions __exec-handoff <path>")
+			fmt.Fprintln(os.Stderr, "usage: agent-sessions __exec-handoff <path>")
 			os.Exit(2)
 		}
 		plan, err := shell.ConsumePlan(os.Args[2])
@@ -244,7 +244,7 @@ func pickHandoffPath(args []string) (string, error) {
 		return "", nil
 	}
 	if len(args) != 2 || args[0] != "--handoff" || args[1] == "" {
-		return "", fmt.Errorf("usage: claude-sessions pick [--handoff <path>]")
+		return "", fmt.Errorf("usage: agent-sessions pick [--handoff <path>]")
 	}
 	return args[1], nil
 }
@@ -383,7 +383,7 @@ func executeOrHandoff(plan domain.ResumePlan, handoffPath string, execPlan func(
 	return execPlan(plan)
 }
 
-const evalMarker = `claude-sessions init`
+const evalMarker = `agent-sessions init`
 
 // shellInitResult describes what installShellInitTo did.
 type shellInitResult struct {
@@ -397,13 +397,13 @@ type shellInitResult struct {
 func resolveShellConfig(shell, home string) (configFile, evalLine string, err error) {
 	switch shell {
 	case "zsh":
-		return filepath.Join(home, ".zshrc"), `eval "$(claude-sessions init zsh)"`, nil
+		return filepath.Join(home, ".zshrc"), `eval "$(agent-sessions init zsh)"`, nil
 	case "bash":
 		rc := filepath.Join(home, ".bashrc")
 		if _, err := os.Stat(rc); os.IsNotExist(err) {
 			rc = filepath.Join(home, ".bash_profile")
 		}
-		return rc, `eval "$(claude-sessions init bash)"`, nil
+		return rc, `eval "$(agent-sessions init bash)"`, nil
 	default:
 		return "", "", fmt.Errorf("unsupported shell: %s (supported: zsh, bash)", shell)
 	}
@@ -426,7 +426,7 @@ func installShellInitTo(configFile, evalLine string) (shellInitResult, error) {
 	}
 	defer f.Close()
 
-	if _, err := fmt.Fprintf(f, "\n# claude-sessions shell integration\n%s\n", evalLine); err != nil {
+	if _, err := fmt.Fprintf(f, "\n# agent-sessions shell integration\n%s\n", evalLine); err != nil {
 		return res, fmt.Errorf("failed to write: %w", err)
 	}
 
@@ -467,7 +467,7 @@ func installShellInit() {
 
 	log("")
 	log("Features:")
-	log("  cs               open session browser (alias for claude-sessions)")
+	log("  asess            open session browser (alias for agent-sessions)")
 	log("  ctrl+s           fuzzy session picker")
 
 	if !res.AlreadyInstalled {

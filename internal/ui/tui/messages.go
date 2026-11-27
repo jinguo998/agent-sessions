@@ -1,9 +1,9 @@
 package tui
 
 import (
-	apparchive "github.com/jinguo998/claude-sessions/internal/app/archive"
-	session "github.com/jinguo998/claude-sessions/internal/app/model"
-	appscan "github.com/jinguo998/claude-sessions/internal/app/scan"
+	apparchive "github.com/jinguo998/agent-sessions/internal/app/archive"
+	session "github.com/jinguo998/agent-sessions/internal/app/model"
+	appscan "github.com/jinguo998/agent-sessions/internal/app/scan"
 )
 
 // Action constants for MenuActionMsg.

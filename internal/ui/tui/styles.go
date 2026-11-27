@@ -3,7 +3,7 @@ package tui
 import (
 	"github.com/charmbracelet/lipgloss"
 
-	uishared "github.com/jinguo998/claude-sessions/internal/ui/shared"
+	uishared "github.com/jinguo998/agent-sessions/internal/ui/shared"
 )
 
 var adaptive = uishared.Adaptive

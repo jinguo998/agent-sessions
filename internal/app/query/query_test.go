@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jinguo998/claude-sessions/internal/app/model"
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/app/model"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 func TestIndexBuildsSearchCorpusOutsideDomain(t *testing.T) {

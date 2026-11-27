@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	"github.com/jinguo998/claude-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/source"
 )
 
 func (a Adapter) ParsePreview(ctx context.Context, sess domain.Session, opts source.PreviewOptions) ([]domain.ConversationTurn, error) {

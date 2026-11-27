@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
-	apparchive "github.com/jinguo998/claude-sessions/internal/app/archive"
-	"github.com/jinguo998/claude-sessions/internal/app/model"
-	apppreview "github.com/jinguo998/claude-sessions/internal/app/preview"
-	appresume "github.com/jinguo998/claude-sessions/internal/app/resume"
-	"github.com/jinguo998/claude-sessions/internal/domain"
-	"github.com/jinguo998/claude-sessions/internal/source"
-	"github.com/jinguo998/claude-sessions/internal/source/claude"
-	"github.com/jinguo998/claude-sessions/internal/source/codex"
-	"github.com/jinguo998/claude-sessions/internal/source/opencode"
-	storagetrash "github.com/jinguo998/claude-sessions/internal/storage/trash"
-	"github.com/jinguo998/claude-sessions/internal/ui/picker"
+	apparchive "github.com/jinguo998/agent-sessions/internal/app/archive"
+	"github.com/jinguo998/agent-sessions/internal/app/model"
+	apppreview "github.com/jinguo998/agent-sessions/internal/app/preview"
+	appresume "github.com/jinguo998/agent-sessions/internal/app/resume"
+	"github.com/jinguo998/agent-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/source/claude"
+	"github.com/jinguo998/agent-sessions/internal/source/codex"
+	"github.com/jinguo998/agent-sessions/internal/source/opencode"
+	storagetrash "github.com/jinguo998/agent-sessions/internal/storage/trash"
+	"github.com/jinguo998/agent-sessions/internal/ui/picker"
 )
 
 func TestPreviewVerboseSmoke(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/agent-sessions/internal/domain"
 )
 
 const adaptiveTailMaxBytes int64 = 16 * 1024 * 1024

@@ -15,11 +15,11 @@ Please **do not** report security vulnerabilities through public GitHub issues.
 
 Instead, report them privately using GitHub Security Advisories:
 
-- [Report a vulnerability](https://github.com/jinguo998/claude-sessions/security/advisories/new)
+- [Report a vulnerability](https://github.com/jinguo998/agent-sessions/security/advisories/new)
 
 Include as much detail as possible to help reproduce and assess the issue:
 
-- Affected version (`claude-sessions --version`) and OS/architecture
+- Affected version (`agent-sessions --version`) and OS/architecture
 - Steps to reproduce or proof-of-concept input
 - Potential impact (for example, local file parsing, SQLite reading, archive/restore path handling, or shell command handoff)
 

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jinguo998/claude-sessions/internal/source"
+	"github.com/jinguo998/agent-sessions/internal/source"
 )
 
 func TestV2ReadOnlySessionDiscoveryAndPreview(t *testing.T) {

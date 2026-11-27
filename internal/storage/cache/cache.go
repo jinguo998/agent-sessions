@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/jinguo998/claude-sessions/internal/storage"
+	"github.com/jinguo998/agent-sessions/internal/storage"
 )
 
 const metadataCacheVersion = 5
@@ -65,7 +65,7 @@ func metadataCachePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, "claude-sessions", "metadata-cache.json"), nil
+	return filepath.Join(base, "agent-sessions", "metadata-cache.json"), nil
 }
 
 func (c *Store) Get(key string, fp storage.CacheFingerprint) (storage.CachedSession, bool) {
