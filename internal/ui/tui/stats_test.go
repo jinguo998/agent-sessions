@@ -9,12 +9,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 func TestCalculateSessionStats(t *testing.T) {
 	now := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
 	sessions := []session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "a",
 			ProjectPath: "/Users/example/alpha",
 			FirstMsg:    "Fix alpha bug",
@@ -25,8 +26,8 @@ func TestCalculateSessionStats(t *testing.T) {
 			TokenUsage:  session.TokenUsage{Input: 1000, Output: 500},
 			Model:       "sonnet",
 			Source:      session.SourceClaude,
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "b",
 			ProjectPath: "/Users/example/bravo",
 			FirstMsg:    "Refactor bravo",
@@ -37,8 +38,8 @@ func TestCalculateSessionStats(t *testing.T) {
 			TokenUsage:  session.TokenUsage{Input: 3000, Output: 1000},
 			Model:       "sonnet",
 			Source:      session.SourceClaude,
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "c",
 			ProjectPath: "/Users/example/alpha",
 			Title:       "Codex thread",
@@ -49,7 +50,7 @@ func TestCalculateSessionStats(t *testing.T) {
 			TokenUsage:  session.TokenUsage{Input: 100, Output: 50},
 			Model:       "gpt-5.4",
 			Source:      session.SourceCodex,
-		},
+		}, ""),
 	}
 
 	stats := calculateSessionStats(sessions, now)
@@ -95,11 +96,11 @@ func TestCalculateSessionStats(t *testing.T) {
 func TestFilterSessionsByStatsRange(t *testing.T) {
 	now := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
 	sessions := []session.Session{
-		{ID: "day", LastTime: now.Add(-2 * time.Hour)},
-		{ID: "week", LastTime: now.Add(-3 * 24 * time.Hour)},
-		{ID: "month", LastTime: now.Add(-20 * 24 * time.Hour)},
-		{ID: "old", LastTime: now.Add(-45 * 24 * time.Hour)},
-		{ID: "unknown"},
+		session.FromDomain(domain.Session{ID: "day", LastTime: now.Add(-2 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "week", LastTime: now.Add(-3 * 24 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "month", LastTime: now.Add(-20 * 24 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "old", LastTime: now.Add(-45 * 24 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "unknown"}, ""),
 	}
 
 	checks := []struct {
@@ -130,10 +131,10 @@ func TestFilterSessionsByStatsRange(t *testing.T) {
 func TestStatsModelRangeKeys(t *testing.T) {
 	now := time.Now()
 	sessions := []session.Session{
-		{ID: "day", ProjectPath: "/tmp/day", FirstMsg: "Day", LastTime: now.Add(-2 * time.Hour), Source: session.SourceClaude},
-		{ID: "week", ProjectPath: "/tmp/week", FirstMsg: "Week", LastTime: now.Add(-3 * 24 * time.Hour), Source: session.SourceClaude},
-		{ID: "month", ProjectPath: "/tmp/month", FirstMsg: "Month", LastTime: now.Add(-20 * 24 * time.Hour), Source: session.SourceClaude},
-		{ID: "old", ProjectPath: "/tmp/old", FirstMsg: "Old", LastTime: now.Add(-45 * 24 * time.Hour), Source: session.SourceClaude},
+		session.FromDomain(domain.Session{ID: "day", ProjectPath: "/tmp/day", FirstMsg: "Day", LastTime: now.Add(-2 * time.Hour), Source: session.SourceClaude}, ""),
+		session.FromDomain(domain.Session{ID: "week", ProjectPath: "/tmp/week", FirstMsg: "Week", LastTime: now.Add(-3 * 24 * time.Hour), Source: session.SourceClaude}, ""),
+		session.FromDomain(domain.Session{ID: "month", ProjectPath: "/tmp/month", FirstMsg: "Month", LastTime: now.Add(-20 * 24 * time.Hour), Source: session.SourceClaude}, ""),
+		session.FromDomain(domain.Session{ID: "old", ProjectPath: "/tmp/old", FirstMsg: "Old", LastTime: now.Add(-45 * 24 * time.Hour), Source: session.SourceClaude}, ""),
 	}
 	m := NewStatsModel().SetSize(120, 30).Open(sessions, len(sessions), "scope: test")
 
@@ -178,8 +179,8 @@ func TestRenderStatsUsesFilteredSessions(t *testing.T) {
 	m := InitialModel()
 	m.width = 120
 	m.list = m.list.SetSessions([]session.Session{
-		{ID: "a", ProjectPath: "/Users/example/alpha", FirstMsg: "Alpha", LastTime: now, MsgCount: 4, ToolCount: 2, TokenUsage: session.TokenUsage{Input: 1000}, Source: session.SourceClaude},
-		{ID: "b", ProjectPath: "/Users/example/bravo", FirstMsg: "Bravo", LastTime: now, MsgCount: 8, ToolCount: 5, TokenUsage: session.TokenUsage{Input: 2000}, Source: session.SourceCodex},
+		session.FromDomain(domain.Session{ID: "a", ProjectPath: "/Users/example/alpha", FirstMsg: "Alpha", LastTime: now, MsgCount: 4, ToolCount: 2, TokenUsage: session.TokenUsage{Input: 1000}, Source: session.SourceClaude}, ""),
+		session.FromDomain(domain.Session{ID: "b", ProjectPath: "/Users/example/bravo", FirstMsg: "Bravo", LastTime: now, MsgCount: 8, ToolCount: 5, TokenUsage: session.TokenUsage{Input: 2000}, Source: session.SourceCodex}, ""),
 	})
 	m.list.filtered = m.list.filtered[:1]
 
@@ -214,7 +215,7 @@ func TestRenderStatsUsesFilteredSessions(t *testing.T) {
 func TestStatsLayoutFitsTerminal(t *testing.T) {
 	now := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
 	sessions := []session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "alpha",
 			ProjectPath: "/Users/example/projects/alpha-with-a-long-project-name",
 			FirstMsg:    "Fix the session browser layout without pushing details beyond the viewport",
@@ -224,7 +225,7 @@ func TestStatsLayoutFitsTerminal(t *testing.T) {
 			ToolCount:   150,
 			TokenUsage:  session.TokenUsage{Input: 2_000_000, Output: 100_000},
 			Source:      session.SourceClaude,
-		},
+		}, ""),
 	}
 
 	for _, terminalWidth := range []int{80, 160} {
@@ -245,21 +246,21 @@ func TestStatsLayoutFitsTerminal(t *testing.T) {
 
 func TestStatsModelActions(t *testing.T) {
 	sessions := []session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "alpha",
 			ProjectPath: "/Users/example/alpha",
 			FilePath:    "/tmp/alpha.jsonl",
 			FirstMsg:    "Alpha",
 			LastTime:    time.Now().Add(-1 * time.Hour),
 			Source:      session.SourceClaude,
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "bravo",
 			ProjectPath: "/Users/example/bravo",
 			FirstMsg:    "Bravo",
 			LastTime:    time.Now().Add(-2 * time.Hour),
 			Source:      session.SourceClaude,
-		},
+		}, ""),
 	}
 
 	m := NewStatsModel().SetSize(120, 30).Open(sessions, len(sessions), "scope: test")

@@ -12,10 +12,7 @@ import (
 	appstats "github.com/jinguo998/claude-sessions/internal/app/stats"
 )
 
-type statsProjectRow = appstats.ProjectRow
-type statsModelRow = appstats.ModelRow
 type statsBucket = appstats.Bucket
-type statsSessionRank = appstats.SessionRank
 type sessionStats = appstats.Dashboard
 
 type statsRange int
@@ -372,14 +369,6 @@ func statsSessionLabel(sess session.Session) string {
 	}
 }
 
-func truncateStatLabel(s string) string {
-	s = strings.TrimSpace(s)
-	if displayWidth(s) > 42 {
-		return truncateToWidth(s, 42)
-	}
-	return s
-}
-
 func bar(count, maxCount, width int) string {
 	if width < 1 {
 		width = 1
@@ -405,10 +394,6 @@ func maxBucketCount(items []statsBucket) int {
 		}
 	}
 	return maxCount
-}
-
-func renderStatsDashboard(stats sessionStats, shownCount, totalCount, width int, scopeSummary string, selectedQueue int) string {
-	return renderStatsDashboardResult(stats, shownCount, totalCount, width, scopeSummary, selectedQueue, session.SourceRegistry{}).content
 }
 
 func renderStatsDashboardResult(stats sessionStats, shownCount, totalCount, width int, scopeSummary string, selectedQueue int, sources session.SourceRegistry) statsRenderResult {
@@ -460,9 +445,7 @@ func renderStatsDashboardResult(stats sessionStats, shownCount, totalCount, widt
 		}
 	}
 	b.WriteString(queueSection)
-	line += countRenderedLines(queueSection)
 	b.WriteString("\n\n")
-	line += 2
 
 	resumeLabel := "resume"
 	if selectedQueue >= 0 && selectedQueue < len(stats.ResumeQueue) {
@@ -645,9 +628,7 @@ func renderStatsPanel(title string, lines []string, width int) string {
 		width = 24
 	}
 	content := []string{statsSectionTitleStyle.Render(title), ""}
-	for _, line := range lines {
-		content = append(content, line)
-	}
+	content = append(content, lines...)
 	return statsPanelStyle.Width(width).Render(strings.Join(content, "\n"))
 }
 

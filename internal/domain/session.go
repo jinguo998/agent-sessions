@@ -118,32 +118,42 @@ func (s Session) ProjectShortName() string {
 	return path[idx+1:]
 }
 
+// LessLastTime reports whether a is more recent than b.
+func LessLastTime(a, b Session) bool { return a.LastTime.After(b.LastTime) }
+
+// LessMsgCount reports whether a has more messages than b.
+func LessMsgCount(a, b Session) bool { return a.MsgCount > b.MsgCount }
+
+// LessToolCount reports whether a has more tool calls than b.
+func LessToolCount(a, b Session) bool { return a.ToolCount > b.ToolCount }
+
+// LessTotalTokens reports whether a used more total tokens than b.
+func LessTotalTokens(a, b Session) bool { return a.TotalTokens() > b.TotalTokens() }
+
 // SortByLastTime sorts sessions by LastTime descending.
 type SortByLastTime []Session
 
 func (s SortByLastTime) Len() int           { return len(s) }
-func (s SortByLastTime) Less(i, j int) bool { return s[i].LastTime.After(s[j].LastTime) }
+func (s SortByLastTime) Less(i, j int) bool { return LessLastTime(s[i], s[j]) }
 func (s SortByLastTime) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // SortByMsgCount sorts sessions by MsgCount descending.
 type SortByMsgCount []Session
 
 func (s SortByMsgCount) Len() int           { return len(s) }
-func (s SortByMsgCount) Less(i, j int) bool { return s[i].MsgCount > s[j].MsgCount }
+func (s SortByMsgCount) Less(i, j int) bool { return LessMsgCount(s[i], s[j]) }
 func (s SortByMsgCount) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // SortByToolCount sorts sessions by ToolCount descending.
 type SortByToolCount []Session
 
 func (s SortByToolCount) Len() int           { return len(s) }
-func (s SortByToolCount) Less(i, j int) bool { return s[i].ToolCount > s[j].ToolCount }
+func (s SortByToolCount) Less(i, j int) bool { return LessToolCount(s[i], s[j]) }
 func (s SortByToolCount) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // SortByTotalTokens sorts sessions by total token usage descending.
 type SortByTotalTokens []Session
 
-func (s SortByTotalTokens) Len() int { return len(s) }
-func (s SortByTotalTokens) Less(i, j int) bool {
-	return s[i].TotalTokens() > s[j].TotalTokens()
-}
-func (s SortByTotalTokens) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s SortByTotalTokens) Len() int           { return len(s) }
+func (s SortByTotalTokens) Less(i, j int) bool { return LessTotalTokens(s[i], s[j]) }
+func (s SortByTotalTokens) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

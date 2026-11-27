@@ -5,12 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/jinguo998/claude-sessions/internal/storage"
 )
 
-const metadataCacheVersion = 4
+const metadataCacheVersion = 5
 
 type metadataCacheFile struct {
 	Version int                   `json:"version"`
@@ -18,9 +17,10 @@ type metadataCacheFile struct {
 }
 
 type cacheEntry struct {
-	Size    int64                 `json:"size"`
-	ModTime int64                 `json:"mod_time"`
-	Session storage.CachedSession `json:"session"`
+	Size        int64                 `json:"size"`
+	ModTime     int64                 `json:"mod_time"`
+	MetadataKey string                `json:"metadata_key,omitempty"`
+	Session     storage.CachedSession `json:"session"`
 }
 
 type Store struct {
@@ -68,68 +68,67 @@ func metadataCachePath() (string, error) {
 	return filepath.Join(base, "claude-sessions", "metadata-cache.json"), nil
 }
 
-func (c *Store) Get(path string, size int64, modTime time.Time) (storage.CachedSession, bool) {
+func (c *Store) Get(key string, fp storage.CacheFingerprint) (storage.CachedSession, bool) {
 	if c == nil {
 		return storage.CachedSession{}, false
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	entry, ok := c.entries[path]
-	if !ok || entry.Size != size || entry.ModTime != modTime.UnixNano() {
+	entry, ok := c.entries[key]
+	if !ok || entry.Size != fp.Size || entry.ModTime != fp.ModTime.UnixNano() || entry.MetadataKey != fp.MetadataKey {
 		return storage.CachedSession{}, false
 	}
-	c.updated[path] = entry
+	c.updated[key] = entry
 	return entry.Session, true
 }
 
-func (c *Store) Put(path string, size int64, modTime time.Time, sess storage.CachedSession) {
+func (c *Store) Put(key string, fp storage.CacheFingerprint, sess storage.CachedSession) {
 	if c == nil {
 		return
 	}
 	entry := cacheEntry{
-		Size:    size,
-		ModTime: modTime.UnixNano(),
-		Session: sess,
+		Size:        fp.Size,
+		ModTime:     fp.ModTime.UnixNano(),
+		MetadataKey: fp.MetadataKey,
+		Session:     sess,
 	}
 	c.mu.Lock()
-	c.updated[path] = entry
+	c.updated[key] = entry
 	c.mu.Unlock()
 }
 
+// Save promotes the current scan epoch into the active lookup map, starts a
+// fresh epoch buffer for subsequent scans (e.g. Ctrl+R refresh), and persists
+// the promoted snapshot atomically when backed by disk.
 func (c *Store) Save() {
-	if c == nil || c.path == "" {
+	if c == nil {
 		return
 	}
 	c.mu.Lock()
-	file := metadataCacheFile{
-		Version: metadataCacheVersion,
-		Entries: c.updated,
-	}
+	snapshot := c.updated
+	c.entries = snapshot
+	c.updated = make(map[string]cacheEntry, len(snapshot))
+	path := c.path
 	c.mu.Unlock()
 
+	if path == "" {
+		return
+	}
+	file := metadataCacheFile{
+		Version: metadataCacheVersion,
+		Entries: snapshot,
+	}
 	data, err := json.Marshal(file)
 	if err != nil {
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(c.path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return
 	}
-	tmp := c.path + ".tmp"
+	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return
 	}
-	_ = os.Rename(tmp, c.path)
-}
-
-func (c *Store) get(path string, info os.FileInfo) (storage.CachedSession, bool) {
-	return c.Get(path, info.Size(), info.ModTime())
-}
-
-func (c *Store) put(path string, info os.FileInfo, sess storage.CachedSession) {
-	c.Put(path, info.Size(), info.ModTime(), sess)
-}
-
-func (c *Store) save() {
-	c.Save()
+	_ = os.Rename(tmp, path)
 }

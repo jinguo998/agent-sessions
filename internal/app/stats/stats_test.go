@@ -6,12 +6,13 @@ import (
 	"time"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 func TestCalculateDashboard(t *testing.T) {
 	now := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
 	sessions := []session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "a",
 			ProjectPath: "/Users/example/alpha",
 			FirstMsg:    "Fix alpha bug",
@@ -22,8 +23,8 @@ func TestCalculateDashboard(t *testing.T) {
 			TokenUsage:  session.TokenUsage{Input: 1000, Output: 500},
 			Model:       "sonnet",
 			Source:      session.SourceClaude,
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "b",
 			ProjectPath: "/Users/example/bravo",
 			FirstMsg:    "Refactor bravo",
@@ -34,8 +35,8 @@ func TestCalculateDashboard(t *testing.T) {
 			TokenUsage:  session.TokenUsage{Input: 3000, Output: 1000},
 			Model:       "sonnet",
 			Source:      session.SourceClaude,
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "c",
 			ProjectPath: "/Users/example/alpha",
 			Title:       "Codex thread",
@@ -46,8 +47,8 @@ func TestCalculateDashboard(t *testing.T) {
 			TokenUsage:  session.TokenUsage{Input: 100, Output: 50},
 			Model:       "gpt-5.4",
 			Source:      session.SourceCodex,
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "d",
 			ProjectPath: "/Users/example/delta",
 			Title:       "OpenCode thread",
@@ -58,7 +59,7 @@ func TestCalculateDashboard(t *testing.T) {
 			TokenUsage:  session.TokenUsage{Input: 200, Output: 100},
 			Model:       "minimax/MiniMax-M3",
 			Source:      session.SourceOpenCode,
-		},
+		}, ""),
 	}
 
 	stats := Calculate(sessions, now)
@@ -106,14 +107,30 @@ func TestCalculateDashboard(t *testing.T) {
 	}
 }
 
+func TestCalculatePreservesFullSessionLabelWithoutTerminalTruncation(t *testing.T) {
+	now := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
+	longTitle := "Investigate multi-source session cache invalidation across Antigravity IDE and CLI"
+	dashboard := Calculate([]session.Session{
+		session.FromDomain(domain.Session{
+			ID:       "long",
+			Title:    "  " + longTitle + "  ",
+			LastTime: now.Add(-1 * time.Hour),
+			Source:   session.SourceClaude,
+		}, ""),
+	}, now)
+	if len(dashboard.ResumeQueue) != 1 || dashboard.ResumeQueue[0].Label != longTitle {
+		t.Fatalf("ResumeQueue[0].Label = %q, want full untruncated %q", dashboard.ResumeQueue[0].Label, longTitle)
+	}
+}
+
 func TestFilterByDuration(t *testing.T) {
 	now := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
 	sessions := []session.Session{
-		{ID: "day", LastTime: now.Add(-2 * time.Hour)},
-		{ID: "week", LastTime: now.Add(-3 * 24 * time.Hour)},
-		{ID: "month", LastTime: now.Add(-20 * 24 * time.Hour)},
-		{ID: "old", LastTime: now.Add(-45 * 24 * time.Hour)},
-		{ID: "unknown"},
+		session.FromDomain(domain.Session{ID: "day", LastTime: now.Add(-2 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "week", LastTime: now.Add(-3 * 24 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "month", LastTime: now.Add(-20 * 24 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "old", LastTime: now.Add(-45 * 24 * time.Hour)}, ""),
+		session.FromDomain(domain.Session{ID: "unknown"}, ""),
 	}
 
 	checks := []struct {

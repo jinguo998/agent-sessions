@@ -2,82 +2,28 @@ package picker
 
 import (
 	"fmt"
-	"sort"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	uishared "github.com/jinguo998/claude-sessions/internal/ui/shared"
 )
 
-func adaptive(light, dark string) lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: light, Dark: dark}
-}
-
 var (
-	dimStyle      = plainStyle.Foreground(adaptive("242", "241"))
+	dimStyle      = plainStyle.Foreground(uishared.Adaptive("242", "241"))
 	matchStyle    = plainStyle.Reverse(true).Bold(true)
 	plainStyle    = lipgloss.NewStyle()
-	selectedStyle = plainStyle.Foreground(adaptive("255", "255")).Background(adaptive("57", "57"))
-	countStyle    = plainStyle.Foreground(adaptive("242", "241"))
+	selectedStyle = plainStyle.Foreground(uishared.Adaptive("255", "255")).Background(uishared.Adaptive("57", "57"))
+	countStyle    = plainStyle.Foreground(uishared.Adaptive("242", "241"))
 )
 
 const (
 	colProject      = 15
 	maxSnippetWidth = 40
 )
-
-func relativeTime(t time.Time) string {
-	d := time.Since(t)
-	if d < time.Minute {
-		return "just now"
-	}
-	if d < time.Hour {
-		return fmt.Sprintf("%dm ago", int(d.Minutes()))
-	}
-	if d < 24*time.Hour {
-		return fmt.Sprintf("%dh ago", int(d.Hours()))
-	}
-	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
-}
-
-func displayWidth(s string) int {
-	return runewidth.StringWidth(s)
-}
-
-func truncateToWidth(s string, maxWidth int) string {
-	if displayWidth(s) <= maxWidth {
-		return s
-	}
-	ellipsis := "..."
-	budget := maxWidth - displayWidth(ellipsis)
-	if budget <= 0 {
-		return ellipsis[:maxWidth]
-	}
-	var b strings.Builder
-	w := 0
-	for _, r := range s {
-		rw := runewidth.RuneWidth(r)
-		if w+rw > budget {
-			break
-		}
-		b.WriteRune(r)
-		w += rw
-	}
-	return b.String() + ellipsis
-}
-
-func padToWidth(s string, targetWidth int) string {
-	w := displayWidth(s)
-	if w >= targetWidth {
-		return s
-	}
-	return s + strings.Repeat(" ", targetWidth-w)
-}
 
 func highlightByIndexes(text string, indexes []int, baseSty, matchSty lipgloss.Style) string {
 	if text == "" {
@@ -123,25 +69,25 @@ func FormatRow(match MatchResult, tokens []string, width int, selected bool, sou
 
 	// --- badge ---
 	badgeChar := info.Badge
-	badgeSty := plainStyle.Foreground(adaptive(info.LightColor, info.DarkColor)).Bold(true)
+	badgeSty := uishared.SourceBadgeStyle(info.Source)
 
 	// --- time (10 cols) ---
-	timeStr := padToWidth(truncateToWidth(relativeTime(s.LastTime), 10), 10)
+	timeStr := uishared.PadToWidth(uishared.TruncateToWidth(uishared.RelativeTime(s.LastTime), 10), 10)
 
 	// --- project (colProject cols) ---
-	projStr := padToWidth(truncateToWidth(s.ProjectShortName(), colProject), colProject)
+	projStr := uishared.PadToWidth(uishared.TruncateToWidth(s.ProjectShortName(), colProject), colProject)
 
 	// --- message part ---
 	// Fixed overhead: prefix(2) + badge(1) + sp(2) + time(10) + sp(2) + project(15) + sp(2)
 	const overhead = 2 + 1 + 2 + 10 + 2 + colProject + 2
 	msgWidth := max(width-overhead, 0)
 
-	firstMsgTrunc := truncateToWidth(s.FirstMsg, msgWidth)
+	firstMsgTrunc := uishared.TruncateToWidth(s.FirstMsg, msgWidth)
 
 	// Selected row: full-width background, no keyword highlights (like fzf).
 	if selected {
 		plain := "> " + badgeChar + "  " + timeStr + "  " + projStr + "  " + firstMsgTrunc
-		return selectedStyle.Render(padToWidth(plain, width))
+		return selectedStyle.Render(uishared.PadToWidth(plain, width))
 	}
 
 	var msgPart string
@@ -153,7 +99,7 @@ func FormatRow(match MatchResult, tokens []string, width int, selected bool, sou
 			msgPart = highlightByIndexes(firstMsgTrunc, firstMsgIndexes, plainStyle, matchStyle)
 		} else {
 			// Tokens not in FirstMsg; show FirstMsg + context snippet.
-			firstMsgWidth := displayWidth(firstMsgTrunc)
+			firstMsgWidth := uishared.DisplayWidth(firstMsgTrunc)
 			remaining := msgWidth - firstMsgWidth - 2
 			searchText := match.SearchText
 			if searchText == "" {
@@ -203,7 +149,7 @@ type Model struct {
 func NewModel(sessions []session.Session, sources ...session.SourceRegistry) Model {
 	sorted := make([]session.Session, len(sessions))
 	copy(sorted, sessions)
-	sort.Sort(session.SortByLastTime(sorted))
+	session.SortRecent(sorted)
 
 	matches := make([]MatchResult, len(sorted))
 	for i, s := range sorted {

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 func TestSidePreviewLoadSessionReplacesStaleLinesWithLoading(t *testing.T) {
@@ -13,13 +14,13 @@ func TestSidePreviewLoadSessionReplacesStaleLinesWithLoading(t *testing.T) {
 	m.content = "old content"
 	m.lines = []string{"old content"}
 
-	m, cmd := m.LoadSession(nil, session.Session{
+	m, cmd := m.LoadSession(nil, session.FromDomain(domain.Session{
 		ID:          "new",
 		FirstMsg:    "New session",
 		ProjectPath: "/tmp/project",
 		FilePath:    "/tmp/missing.jsonl",
 		Source:      session.SourceClaude,
-	}, 80, 7)
+	}, ""), 80, 7)
 
 	if cmd == nil {
 		t.Fatal("LoadSession should return a load command")
@@ -42,7 +43,7 @@ func TestSidePreviewNeedsReloadDoesNotDuplicateSameSession(t *testing.T) {
 	m := NewSidePreviewModel()
 	m.sessionID = "same"
 	m.source = session.SourceAntigravityIDE
-	same := session.Session{ID: "same", Source: session.SourceAntigravityIDE}
+	same := session.FromDomain(domain.Session{ID: "same", Source: session.SourceAntigravityIDE}, "")
 	m.loading = true
 	if m.NeedsReload(same) {
 		t.Fatal("loading preview should not duplicate a load for the same session")
@@ -52,10 +53,10 @@ func TestSidePreviewNeedsReloadDoesNotDuplicateSameSession(t *testing.T) {
 	if m.NeedsReload(same) {
 		t.Fatal("loaded preview should not reload the same session")
 	}
-	if !m.NeedsReload(session.Session{ID: "other", Source: same.Source}) {
+	if !m.NeedsReload(session.FromDomain(domain.Session{ID: "other", Source: same.Source}, "")) {
 		t.Fatal("different session should reload")
 	}
-	if !m.NeedsReload(session.Session{ID: "same", Source: session.SourceAntigravityCLI}) {
+	if !m.NeedsReload(session.FromDomain(domain.Session{ID: "same", Source: session.SourceAntigravityCLI}, "")) {
 		t.Fatal("the CLI copy has a different transcript")
 	}
 }

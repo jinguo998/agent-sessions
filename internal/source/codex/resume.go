@@ -9,6 +9,16 @@ import (
 	"github.com/jinguo998/claude-sessions/internal/source"
 )
 
+func (a Adapter) Descriptor() source.Descriptor {
+	return source.Descriptor{
+		Source:                domain.SourceCodex,
+		Label:                 "Codex",
+		Badge:                 "X",
+		DefaultPermissionMode: domain.PermissionModeSafe,
+		SupportsFork:          true,
+	}
+}
+
 func (a Adapter) PlanResume(ctx context.Context, target domain.ResumeTarget) (domain.ResumePlan, error) {
 	_ = ctx
 	sess := target.Session

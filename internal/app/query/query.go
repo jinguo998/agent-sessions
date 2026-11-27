@@ -1,7 +1,6 @@
 package query
 
 import (
-	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -64,7 +63,7 @@ func (s *Service) Search(sessions []model.Session, filter Filter) []IndexedSessi
 }
 
 func SortRecent(sessions []model.Session) {
-	sort.Sort(model.SortByLastTime(sessions))
+	model.SortRecent(sessions)
 }
 
 func Tokens(query string) []string {
@@ -113,9 +112,7 @@ func buildCorpus(sess model.Session) string {
 		sess.Origin,
 		sess.Model,
 	}
-	for _, label := range sess.Labels {
-		parts = append(parts, label)
-	}
+	parts = append(parts, sess.Labels...)
 	if sess.Attributes != nil {
 		for k, v := range sess.Attributes {
 			parts = append(parts, k, v)

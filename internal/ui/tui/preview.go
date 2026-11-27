@@ -238,16 +238,16 @@ func (p PreviewModel) updateKey(msg tea.KeyMsg) (PreviewModel, tea.Cmd) {
 		p.viewport.GotoBottom()
 		return p, nil
 	case "ctrl+d":
-		p.viewport.HalfViewDown()
+		p.viewport.HalfPageDown()
 		return p, nil
 	case "ctrl+u":
-		p.viewport.HalfViewUp()
+		p.viewport.HalfPageUp()
 		return p, nil
 	case "ctrl+f":
-		p.viewport.ViewDown()
+		p.viewport.PageDown()
 		return p, nil
 	case "ctrl+b":
-		p.viewport.ViewUp()
+		p.viewport.PageUp()
 		return p, nil
 	default:
 		var cmd tea.Cmd

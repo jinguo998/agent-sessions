@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 func TestFindSessionsSingleToken(t *testing.T) {
 	sessions := []session.Session{
-		{ID: "1", FirstMsg: "install fzf and ripgrep", SearchText: "install fzf and ripgrep"},
-		{ID: "2", FirstMsg: "fix the login bug", SearchText: "fix the login bug"},
-		{ID: "3", FirstMsg: "add rate limiting", SearchText: "add rate limiting also discussed fzf integration"},
+		session.FromDomain(domain.Session{ID: "1", FirstMsg: "install fzf and ripgrep"}, "install fzf and ripgrep"),
+		session.FromDomain(domain.Session{ID: "2", FirstMsg: "fix the login bug"}, "fix the login bug"),
+		session.FromDomain(domain.Session{ID: "3", FirstMsg: "add rate limiting"}, "add rate limiting also discussed fzf integration"),
 	}
 
 	results := FindSessions("fzf", sessions)
@@ -26,9 +27,9 @@ func TestFindSessionsSingleToken(t *testing.T) {
 
 func TestFindSessionsMultiToken(t *testing.T) {
 	sessions := []session.Session{
-		{ID: "1", SearchText: "add codex session support"},
-		{ID: "2", SearchText: "fix login bug in codex"},
-		{ID: "3", SearchText: "add rate limiting"},
+		session.FromDomain(domain.Session{ID: "1"}, "add codex session support"),
+		session.FromDomain(domain.Session{ID: "2"}, "fix login bug in codex"),
+		session.FromDomain(domain.Session{ID: "3"}, "add rate limiting"),
 	}
 
 	results := FindSessions("codex add", sessions)
@@ -42,8 +43,8 @@ func TestFindSessionsMultiToken(t *testing.T) {
 
 func TestFindSessionsEmptyQuery(t *testing.T) {
 	sessions := []session.Session{
-		{ID: "1", FirstMsg: "hello"},
-		{ID: "2", FirstMsg: "world"},
+		session.FromDomain(domain.Session{ID: "1", FirstMsg: "hello"}, ""),
+		session.FromDomain(domain.Session{ID: "2", FirstMsg: "world"}, ""),
 	}
 	results := FindSessions("", sessions)
 	if len(results) != 2 {
@@ -53,7 +54,7 @@ func TestFindSessionsEmptyQuery(t *testing.T) {
 
 func TestFindSessionsNoMatch(t *testing.T) {
 	sessions := []session.Session{
-		{ID: "1", SearchText: "hello world"},
+		session.FromDomain(domain.Session{ID: "1"}, "hello world"),
 	}
 	results := FindSessions("zzzzz", sessions)
 	if len(results) != 0 {
@@ -63,7 +64,7 @@ func TestFindSessionsNoMatch(t *testing.T) {
 
 func TestFindSessionsCaseInsensitive(t *testing.T) {
 	sessions := []session.Session{
-		{ID: "1", SearchText: "install codex cli"},
+		session.FromDomain(domain.Session{ID: "1"}, "install codex cli"),
 	}
 	results := FindSessions("Codex", sessions)
 	if len(results) != 1 {
@@ -73,7 +74,7 @@ func TestFindSessionsCaseInsensitive(t *testing.T) {
 
 func TestFindSessionsMatchedIndexes(t *testing.T) {
 	sessions := []session.Session{
-		{ID: "1", SearchText: "hello fzf world"},
+		session.FromDomain(domain.Session{ID: "1"}, "hello fzf world"),
 	}
 	results := FindSessions("fzf", sessions)
 	if len(results) != 1 {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 // stripAnsi removes ANSI escape sequences from a string, returning plain text.
@@ -29,14 +30,13 @@ func stripAnsi(s string) string {
 }
 
 func makeSession(source session.Source, firstMsg, projectPath, searchText string) session.Session {
-	return session.Session{
+	return session.FromDomain(domain.Session{
 		ID:          "test-id",
 		Source:      source,
 		FirstMsg:    firstMsg,
 		ProjectPath: projectPath,
 		LastTime:    time.Now().Add(-5 * time.Minute),
-		SearchText:  searchText,
-	}
+	}, searchText)
 }
 
 func TestFormatRowClaude(t *testing.T) {
@@ -111,14 +111,13 @@ func TestFormatRowContextSnippet(t *testing.T) {
 	// FirstMsg is short; the match is in SearchText (later messages).
 	firstMsg := "short intro message"
 	searchText := "short intro message also discussed rate limiting and fzf integration tools"
-	s := session.Session{
+	s := session.FromDomain(domain.Session{
 		ID:          "ctx-id",
 		Source:      session.SourceClaude,
 		FirstMsg:    firstMsg,
 		ProjectPath: "/home/user/proj",
 		LastTime:    time.Now().Add(-10 * time.Minute),
-		SearchText:  searchText,
-	}
+	}, searchText)
 	// Simulate a match in SearchText that won't match FirstMsg.
 	// "fzf" is in searchText but not in firstMsg.
 	matchedIndexes := []int{51, 52, 53} // approximate indexes of "fzf" in searchText

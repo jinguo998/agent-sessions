@@ -11,13 +11,31 @@ import (
 	"github.com/jinguo998/claude-sessions/internal/source"
 )
 
+func (a Adapter) Descriptor() source.Descriptor {
+	if a.kind == domain.SourceAntigravityCLI {
+		return source.Descriptor{
+			Source:                domain.SourceAntigravityCLI,
+			Label:                 "Antigravity CLI",
+			Badge:                 "A",
+			DefaultPermissionMode: domain.PermissionModeSafe,
+		}
+	}
+	return source.Descriptor{
+		Source:                domain.SourceAntigravityIDE,
+		Label:                 "Antigravity IDE",
+		Badge:                 "I",
+		ResumeLabel:           "Open IDE",
+		DefaultPermissionMode: domain.PermissionModeSafe,
+	}
+}
+
 func (a Adapter) PlanResume(ctx context.Context, target domain.ResumeTarget) (domain.ResumePlan, error) {
 	s := target.Session
 	plan := domain.ResumePlan{WorkingDir: s.ProjectPath, HandoffDir: s.ProjectPath}
 	switch target.Action {
 	case domain.ResumeActionCd:
 		if s.ProjectPath == "" {
-			return domain.ResumePlan{}, fmt.Errorf("Antigravity recorded no local workspace for %s", s.ID)
+			return domain.ResumePlan{}, fmt.Errorf("antigravity recorded no local workspace for %s", s.ID)
 		}
 		plan.CdOnly = true
 		return plan, nil

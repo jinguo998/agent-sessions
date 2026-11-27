@@ -70,7 +70,7 @@ func (m Model) renderListOrSplit() string {
 
 func (m Model) renderSplitView() string {
 	var traceStart time.Time
-	if traceEnabled() {
+	if isTraceEnabled(m.services.Tracer) {
 		traceStart = time.Now()
 	}
 	leftWidth := m.width/2 - 1
@@ -121,7 +121,7 @@ func (m Model) renderSplitView() string {
 
 	result := out.String()
 	if !traceStart.IsZero() {
-		traceEvent("split_view_render", map[string]any{
+		emitTrace(m.services.Tracer, "split_view_render", map[string]any{
 			"width":            m.width,
 			"height":           m.height,
 			"left_width":       leftWidth,

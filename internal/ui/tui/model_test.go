@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,8 @@ import (
 
 	apparchive "github.com/jinguo998/claude-sessions/internal/app/archive"
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	appscan "github.com/jinguo998/claude-sessions/internal/app/scan"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 	"github.com/jinguo998/claude-sessions/internal/source"
 	"github.com/jinguo998/claude-sessions/internal/source/claude"
 	"github.com/jinguo998/claude-sessions/internal/source/codex"
@@ -25,6 +28,23 @@ func testArchiveService(home string) *apparchive.Service {
 }
 
 func TestModelSessionSelectionAndForkQuit(t *testing.T) {
+	sess1 := domain.Session{
+		ID:          "sess-1",
+		ProjectPath: "/tmp/project",
+		FilePath:    "/tmp/sess-1.jsonl",
+		Attributes:  map[string]string{"profile": "default"},
+		Source:      session.SourceClaude,
+	}
+	sessFast := domain.Session{
+		ID:          "sess-fast",
+		ProjectPath: "/tmp/project",
+		Source:      session.SourceClaude,
+	}
+	sess2 := domain.Session{
+		ID:          "sess-2",
+		ProjectPath: "/tmp/project",
+		Source:      session.SourceClaude,
+	}
 	tests := []struct {
 		name string
 		msg  tea.Msg
@@ -32,30 +52,18 @@ func TestModelSessionSelectionAndForkQuit(t *testing.T) {
 	}{
 		{
 			name: "selected",
-			msg: SessionSelectedMsg{Session: session.Session{
-				ID:          "sess-1",
-				ProjectPath: "/tmp/project",
-				Source:      session.SourceClaude,
-			}},
-			want: Result{Dir: "/tmp/project", ID: "sess-1", PermissionMode: session.PermissionModeSafe, Source: session.SourceClaude},
+			msg:  SessionSelectedMsg{Session: session.FromDomain(sess1, "")},
+			want: Result{Session: sess1, Action: domain.ResumeActionResume, PermissionMode: session.PermissionModeSafe},
 		},
 		{
 			name: "selected fast",
-			msg: SessionSelectedMsg{Session: session.Session{
-				ID:          "sess-fast",
-				ProjectPath: "/tmp/project",
-				Source:      session.SourceClaude,
-			}, PermissionMode: session.PermissionModeFast},
-			want: Result{Dir: "/tmp/project", ID: "sess-fast", PermissionMode: session.PermissionModeFast, Source: session.SourceClaude},
+			msg:  SessionSelectedMsg{Session: session.FromDomain(sessFast, ""), PermissionMode: session.PermissionModeFast},
+			want: Result{Session: sessFast, Action: domain.ResumeActionResume, PermissionMode: session.PermissionModeFast},
 		},
 		{
 			name: "fork",
-			msg: SessionForkMsg{Session: session.Session{
-				ID:          "sess-2",
-				ProjectPath: "/tmp/project",
-				Source:      session.SourceClaude,
-			}, PermissionMode: session.PermissionModeFast},
-			want: Result{Dir: "/tmp/project", ID: "sess-2", Fork: true, PermissionMode: session.PermissionModeFast, Source: session.SourceClaude},
+			msg:  SessionForkMsg{Session: session.FromDomain(sess2, ""), PermissionMode: session.PermissionModeFast},
+			want: Result{Session: sess2, Action: domain.ResumeActionFork, PermissionMode: session.PermissionModeFast},
 		},
 	}
 
@@ -64,7 +72,7 @@ func TestModelSessionSelectionAndForkQuit(t *testing.T) {
 			m := InitialModel()
 			updated, cmd := m.Update(tt.msg)
 			gotModel := updated.(Model)
-			if gotModel.Result() != tt.want {
+			if !reflect.DeepEqual(gotModel.Result(), tt.want) {
 				t.Fatalf("Result() = %#v, want %#v", gotModel.Result(), tt.want)
 			}
 			if _, ok := runCmd(t, cmd).(tea.QuitMsg); !ok {
@@ -124,13 +132,13 @@ func TestModelDebouncesWheelSidePreviewLoad(t *testing.T) {
 	m.width = splitMinWidth
 	m.height = 24
 	m.list = m.list.SetSessions([]session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "wheel-a",
 			ProjectPath: "/tmp/wheel",
 			FilePath:    testSampleFilePath(t),
 			Source:      session.SourceClaude,
 			FirstMsg:    "Wheel preview",
-		},
+		}, ""),
 	})
 
 	updated, cmd := m.Update(FilterChangedMsg{Debounce: true})
@@ -175,20 +183,20 @@ func TestModelMouseClickLoadsSidePreviewImmediately(t *testing.T) {
 	m.width = splitMinWidth
 	m.height = 24
 	m.list = m.list.SetSessions([]session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "click-a",
 			ProjectPath: "/tmp/click-a",
 			FilePath:    testSampleFilePath(t),
 			Source:      session.SourceClaude,
 			FirstMsg:    "Click A",
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "click-b",
 			ProjectPath: "/tmp/click-b",
 			FilePath:    testSampleFilePath(t),
 			Source:      session.SourceClaude,
 			FirstMsg:    "Click B",
-		},
+		}, ""),
 	})
 
 	updated, cmd := m.Update(testMouse(0, 3, tea.MouseButtonLeft))
@@ -228,20 +236,20 @@ func TestModelMouseClickInvalidatesOldFullSidePreview(t *testing.T) {
 	m.sidePreview.lines = []string{"old tail"}
 	latestSidePreviewToken.Store(1)
 	m.list = m.list.SetSessions([]session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "click-a",
 			ProjectPath: "/tmp/click-a",
 			FilePath:    testSampleFilePath(t),
 			Source:      session.SourceClaude,
 			FirstMsg:    "Click A",
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "click-b",
 			ProjectPath: "/tmp/click-b",
 			FilePath:    testSampleFilePath(t),
 			Source:      session.SourceClaude,
 			FirstMsg:    "Click B",
-		},
+		}, ""),
 	})
 
 	updated, cmd := m.Update(testMouse(0, 3, tea.MouseButtonLeft))
@@ -330,7 +338,7 @@ func TestModelIgnoresStaleSessionsLoadedMsg(t *testing.T) {
 	updated, cmd := m.Update(SessionsLoadedMsg{
 		Token: 1,
 		Sessions: []session.Session{
-			{ID: "old", FirstMsg: "Old scan", MsgCount: 1},
+			session.FromDomain(domain.Session{ID: "old", FirstMsg: "Old scan", MsgCount: 1}, ""),
 		},
 	})
 	got := updated.(Model)
@@ -344,12 +352,37 @@ func TestModelIgnoresStaleSessionsLoadedMsg(t *testing.T) {
 	updated, _ = got.Update(SessionsLoadedMsg{
 		Token: 2,
 		Sessions: []session.Session{
-			{ID: "new", FirstMsg: "New scan", MsgCount: 1},
+			session.FromDomain(domain.Session{ID: "new", FirstMsg: "New scan", MsgCount: 1}, ""),
 		},
 	})
 	got = updated.(Model)
 	if len(got.list.sessions) != 1 || got.list.sessions[0].ID != "new" {
 		t.Fatalf("current scan sessions = %#v, want new", got.list.sessions)
+	}
+}
+
+func TestModelSurfacesPartialScanWarningsWhenSessionsPresent(t *testing.T) {
+	m := InitialModel()
+	m.scanSeq = 1
+
+	updated, cmd := m.Update(SessionsLoadedMsg{
+		Token: 1,
+		Sessions: []session.Session{
+			session.FromDomain(domain.Session{ID: "ok", Source: session.SourceClaude, MsgCount: 1}, ""),
+		},
+		Warnings: []appscan.Warning{
+			{Kind: appscan.WarningSourceUnavailable, Source: "opencode", Message: "db locked"},
+		},
+	})
+	got := updated.(Model)
+	if len(got.scanWarnings) != 1 {
+		t.Fatalf("scanWarnings = %#v, want 1 warning", got.scanWarnings)
+	}
+	if !strings.Contains(got.flash, "opencode") || !strings.Contains(got.flash, "db locked") {
+		t.Fatalf("flash = %q, want partial scan warning summary", got.flash)
+	}
+	if cmd == nil {
+		t.Fatal("partial scan warning should schedule flash auto-clear")
 	}
 }
 
@@ -368,13 +401,13 @@ func TestModelRefreshIncrementsScanToken(t *testing.T) {
 }
 
 func TestModelResizeIntoWideLoadsSidePreview(t *testing.T) {
-	sess := session.Session{
+	sess := session.FromDomain(domain.Session{
 		ID:          "resize-wide",
 		ProjectPath: "/tmp/resize",
 		FilePath:    testSampleFilePath(t),
 		Source:      session.SourceClaude,
 		FirstMsg:    "Resize preview",
-	}
+	}, "")
 	m := InitialModel()
 	m.width = splitMinWidth - 1
 	m.height = 24
@@ -425,13 +458,13 @@ func TestModelResizeNarrowInvalidatesSidePreview(t *testing.T) {
 }
 
 func TestModelViewStateRouting(t *testing.T) {
-	sess := session.Session{
+	sess := session.FromDomain(domain.Session{
 		ID:          "preview-1",
 		ProjectDir:  "-Users-example-demo",
 		ProjectPath: "/Users/example/demo/project",
 		FirstMsg:    "Open preview",
 		FilePath:    testSampleFilePath(t),
-	}
+	}, "")
 
 	m := InitialModel()
 	m.width = 100
@@ -502,7 +535,7 @@ func TestModelStatsActions(t *testing.T) {
 	now := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
 	m := InitialModel()
 	m.list = m.list.SetSessions([]session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "alpha",
 			ProjectPath: "/Users/example/alpha",
 			Source:      session.SourceClaude,
@@ -511,8 +544,8 @@ func TestModelStatsActions(t *testing.T) {
 			MsgCount:    10,
 			ToolCount:   8,
 			TokenUsage:  session.TokenUsage{Input: 1000, Output: 500},
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "bravo",
 			ProjectPath: "/Users/example/bravo",
 			Source:      session.SourceClaude,
@@ -521,7 +554,7 @@ func TestModelStatsActions(t *testing.T) {
 			MsgCount:    6,
 			ToolCount:   2,
 			TokenUsage:  session.TokenUsage{Input: 100, Output: 50},
-		},
+		}, ""),
 	})
 	m.view = viewStats
 
@@ -589,7 +622,7 @@ func TestModelStatsActions(t *testing.T) {
 	}
 
 	got.list = got.list.SetSessions([]session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "alpha",
 			ProjectPath: "/Users/example/alpha",
 			Source:      session.SourceClaude,
@@ -598,8 +631,8 @@ func TestModelStatsActions(t *testing.T) {
 			MsgCount:    10,
 			ToolCount:   8,
 			TokenUsage:  session.TokenUsage{Input: 1000, Output: 500},
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "bravo",
 			ProjectPath: "/Users/example/bravo",
 			FilePath:    "/tmp/bravo.jsonl",
@@ -609,7 +642,7 @@ func TestModelStatsActions(t *testing.T) {
 			MsgCount:    6,
 			ToolCount:   2,
 			TokenUsage:  session.TokenUsage{Input: 100, Output: 50},
-		},
+		}, ""),
 	})
 	got.view = viewStats
 	got.stats.cursor = 1
@@ -661,7 +694,7 @@ func TestModelStatsMouseSelectionAndPreview(t *testing.T) {
 	m := InitialModel()
 	m.width = 140
 	m.list = m.list.SetSessions([]session.Session{
-		{
+		session.FromDomain(domain.Session{
 			ID:          "alpha",
 			ProjectPath: "/Users/example/alpha",
 			Source:      session.SourceClaude,
@@ -670,8 +703,8 @@ func TestModelStatsMouseSelectionAndPreview(t *testing.T) {
 			MsgCount:    10,
 			ToolCount:   8,
 			TokenUsage:  session.TokenUsage{Input: 1000, Output: 500},
-		},
-		{
+		}, ""),
+		session.FromDomain(domain.Session{
 			ID:          "bravo",
 			ProjectPath: "/Users/example/bravo",
 			Source:      session.SourceClaude,
@@ -680,7 +713,7 @@ func TestModelStatsMouseSelectionAndPreview(t *testing.T) {
 			MsgCount:    6,
 			ToolCount:   2,
 			TokenUsage:  session.TokenUsage{Input: 100, Output: 50},
-		},
+		}, ""),
 	})
 	m.view = viewStats
 	m.stats = m.stats.SetSize(m.width, m.height).SetSessions(m.list.Filtered(), len(m.list.sessions), m.statsScopeSummary())
@@ -743,13 +776,13 @@ func TestModelDeleteConfirm(t *testing.T) {
 		t.Fatalf("Mkdir() error = %v", err)
 	}
 
-	sess := session.Session{
+	sess := session.FromDomain(domain.Session{
 		ID:          "delete-1",
 		ProjectDir:  "-Users-example-demo",
 		ProjectPath: "/Users/example/demo",
 		FilePath:    filePath,
 		Source:      session.SourceClaude,
-	}
+	}, "")
 
 	m := InitialModel(Services{Archive: testArchiveService(tmpHome)})
 	m.list = m.list.SetSessions([]session.Session{sess})
@@ -793,7 +826,7 @@ func TestModelDeleteConfirm(t *testing.T) {
 	if err := os.WriteFile(filePath, []byte("{}\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	keep := session.Session{ID: "keep-1", FilePath: filePath}
+	keep := session.FromDomain(domain.Session{ID: "keep-1", FilePath: filePath}, "")
 	m = InitialModel(Services{Archive: testArchiveService(tmpHome)})
 	m.list = m.list.SetSessions([]session.Session{keep})
 	m.deleteIdx = 0
@@ -815,11 +848,11 @@ func TestModelDeleteConfirm(t *testing.T) {
 func TestModelRenderConfirmAndHelpHandleNarrowInputs(t *testing.T) {
 	m := InitialModel()
 	m.width = 10
-	m.list = m.list.SetSessions([]session.Session{{
+	m.list = m.list.SetSessions([]session.Session{session.FromDomain(domain.Session{
 		ID:          "abc",
 		ProjectPath: "/tmp/project",
 		FirstMsg:    "Short ID",
-	}})
+	}, "")})
 	m.deleteIdx = 0
 
 	if got := stripANSI(m.renderDeleteConfirm()); !strings.Contains(got, "abc") {
@@ -887,14 +920,14 @@ func TestModelTrashPreviewAndPermanentDelete(t *testing.T) {
 }
 
 func TestModelMenuActionRouting(t *testing.T) {
-	sess := session.Session{
+	sess := session.FromDomain(domain.Session{
 		ID:          "menu-1",
 		ProjectDir:  "-Users-example-demo",
 		ProjectPath: "/Users/example/demo/project",
 		FirstMsg:    "Inspect preview",
 		FilePath:    testSampleFilePath(t),
 		Source:      session.SourceClaude,
-	}
+	}, "")
 
 	tests := []struct {
 		name string
@@ -903,22 +936,22 @@ func TestModelMenuActionRouting(t *testing.T) {
 	}{
 		{
 			msg:  MenuActionMsg{Action: ActionResumeFast, Session: sess},
-			want: Result{Dir: sess.ProjectPath, ID: sess.ID, PermissionMode: session.PermissionModeFast, Source: sess.Source},
+			want: Result{Session: sess.Domain(), Action: domain.ResumeActionResume, PermissionMode: session.PermissionModeFast},
 		},
 		{
 			name: "resume safe",
 			msg:  MenuActionMsg{Action: ActionResumeSafe, Session: sess},
-			want: Result{Dir: sess.ProjectPath, ID: sess.ID, PermissionMode: session.PermissionModeSafe, Source: sess.Source},
+			want: Result{Session: sess.Domain(), Action: domain.ResumeActionResume, PermissionMode: session.PermissionModeSafe},
 		},
 		{
 			name: "fork",
 			msg:  MenuActionMsg{Action: ActionFork, Session: sess},
-			want: Result{Dir: sess.ProjectPath, ID: sess.ID, Fork: true, PermissionMode: session.PermissionModeFast, Source: sess.Source},
+			want: Result{Session: sess.Domain(), Action: domain.ResumeActionFork, PermissionMode: session.PermissionModeFast},
 		},
 		{
 			name: "cd",
 			msg:  MenuActionMsg{Action: ActionCd, Session: sess},
-			want: Result{Dir: sess.ProjectPath, ID: sess.ID, CdOnly: true, PermissionMode: session.PermissionModeSafe, Source: sess.Source},
+			want: Result{Session: sess.Domain(), Action: domain.ResumeActionCd, PermissionMode: session.PermissionModeSafe},
 		},
 	}
 
@@ -929,8 +962,8 @@ func TestModelMenuActionRouting(t *testing.T) {
 
 		updated, cmd := m.Update(MenuActionMsg{Action: ActionResumeFast, Session: codexSess})
 		got := updated.(Model)
-		want := Result{Dir: codexSess.ProjectPath, ID: codexSess.ID, PermissionMode: session.PermissionModeSafe, Source: codexSess.Source}
-		if got.Result() != want {
+		want := Result{Session: codexSess.Domain(), Action: domain.ResumeActionResume, PermissionMode: session.PermissionModeSafe}
+		if !reflect.DeepEqual(got.Result(), want) {
 			t.Fatalf("Result() = %#v, want %#v", got.Result(), want)
 		}
 		if _, ok := runCmd(t, cmd).(tea.QuitMsg); !ok {
@@ -944,7 +977,7 @@ func TestModelMenuActionRouting(t *testing.T) {
 
 			updated, cmd := m.Update(tt.msg)
 			got := updated.(Model)
-			if got.Result() != tt.want {
+			if !reflect.DeepEqual(got.Result(), tt.want) {
 				t.Fatalf("Result() = %#v, want %#v", got.Result(), tt.want)
 			}
 
@@ -996,14 +1029,14 @@ func TestModelMenuActionRouting(t *testing.T) {
 func TestModelPreviewReloadMsg(t *testing.T) {
 	filePath := filepath.Join(filepath.Dir(testSampleFilePath(t)), "verbose_sample.jsonl")
 
-	sess := session.Session{
+	sess := session.FromDomain(domain.Session{
 		ID:          "preview-reload",
 		ProjectDir:  "-Users-example-demo",
 		ProjectPath: "/Users/example/demo/project",
 		FirstMsg:    "Verbose reload",
 		FilePath:    filePath,
 		Source:      session.SourceClaude,
-	}
+	}, "")
 
 	m := InitialModel(Services{Preview: testPreviewService()})
 	m.width = 80

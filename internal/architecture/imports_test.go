@@ -62,6 +62,9 @@ func checkPackageImports(t *testing.T, module string, pkg goPackage) {
 			if strings.HasPrefix(area, "domain") && !isStdlib(imp) {
 				t.Errorf("%s imports non-stdlib dependency %s", pkg.ImportPath, imp)
 			}
+			if strings.HasPrefix(area, "app/") && !isStdlib(imp) {
+				t.Errorf("%s imports non-stdlib dependency %s", pkg.ImportPath, imp)
+			}
 			continue
 		}
 
@@ -106,11 +109,16 @@ func allowedInternalImport(area, imp string) bool {
 		return imp == "domain" ||
 			strings.HasPrefix(imp, "domain/") ||
 			imp == "app/ports"
+	case area == "ui/shared":
+		return imp == "domain" ||
+			strings.HasPrefix(imp, "domain/") ||
+			imp == "app/model"
 	case strings.HasPrefix(area, "ui/"):
 		return imp == "domain" ||
 			strings.HasPrefix(imp, "domain/") ||
 			imp == "app" ||
-			strings.HasPrefix(imp, "app/")
+			strings.HasPrefix(imp, "app/") ||
+			imp == "ui/shared"
 	default:
 		return false
 	}
@@ -146,6 +154,11 @@ func TestBoundaryRuleExamples(t *testing.T) {
 		{area: "app/scan", imp: "source/claude", ok: false},
 		{area: "platform/shell", imp: "app/ports", ok: true},
 		{area: "platform/shell", imp: "ui/tui", ok: false},
+		{area: "platform/trace", imp: "app/ports", ok: true},
+		{area: "ui/tui", imp: "ui/shared", ok: true},
+		{area: "ui/picker", imp: "ui/shared", ok: true},
+		{area: "ui/shared", imp: "ui/tui", ok: false},
+		{area: "ui/shared", imp: "platform/trace", ok: false},
 	}
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("%s->%s", tc.area, tc.imp), func(t *testing.T) {

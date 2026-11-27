@@ -18,8 +18,8 @@ This file is only a routing map for coding agents. Do not duplicate the full pro
 - Source adapters: `internal/source/claude/`, `internal/source/codex/`, `internal/source/opencode/`, `internal/source/antigravity/`
 - App services and view models: `internal/app/`
 - Cache and trash stores: `internal/storage/`
-- Full-screen TUI and inline picker: `internal/ui/tui/`, `internal/ui/picker/`
-- Shell, clipboard, editor, and terminal platform implementations: `internal/platform/`
+- Full-screen TUI, inline picker, and shared UI helpers: `internal/ui/tui/`, `internal/ui/picker/`, `internal/ui/shared/`
+- Shell, clipboard, editor, terminal, and trace platform implementations: `internal/platform/`
 - Architecture and migration smoke tests: `internal/architecture/`, `internal/smoke/`
 
 ## Local Files

@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/jinguo998/claude-sessions/actions/workflows/go.yml/badge.svg)](https://github.com/jinguo998/claude-sessions/actions/workflows/go.yml)
 [![CodeQL](https://github.com/jinguo998/claude-sessions/actions/workflows/codeql.yml/badge.svg)](https://github.com/jinguo998/claude-sessions/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/jinguo998/claude-sessions)](https://github.com/jinguo998/claude-sessions/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Browse, preview, search, and reopen Claude Code, Codex CLI, OpenCode, Antigravity IDE, and Antigravity CLI sessions across projects from a terminal dashboard.
 
@@ -189,4 +191,8 @@ See [docs/modules.md](docs/modules.md) for dependency rules and module boundarie
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). For release history, see [CHANGELOG.md](CHANGELOG.md). To report a security issue, see [SECURITY.md](SECURITY.md).
+
+## License
+
+MIT License. See [LICENSE](LICENSE).

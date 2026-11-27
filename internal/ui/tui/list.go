@@ -12,6 +12,8 @@ import (
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
 	appquery "github.com/jinguo998/claude-sessions/internal/app/query"
+	"github.com/jinguo998/claude-sessions/internal/domain"
+	uishared "github.com/jinguo998/claude-sessions/internal/ui/shared"
 )
 
 // sortMode controls the ordering of sessions in the list.
@@ -62,17 +64,11 @@ func ansiSelectedBg() string {
 }
 
 func ansiBadgeSource(info session.SourceInfo) string {
-	color := info.LightColor
-	if lipgloss.HasDarkBackground() {
-		color = info.DarkColor
-	}
-	return fmt.Sprintf("\033[1;38;5;%sm", color)
+	return uishared.SourceANSIColor(info.Source)
 }
 
 func sourceBadgeStyle(info session.SourceInfo) lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(lipgloss.AdaptiveColor{Light: info.LightColor, Dark: info.DarkColor}).
-		Bold(true)
+	return uishared.SourceBadgeStyle(info.Source)
 }
 
 const (
@@ -826,8 +822,7 @@ func (l ListModel) filterLabel() string {
 	if l.filterProj == "" {
 		return "All"
 	}
-	s := session.Session{ProjectPath: l.filterProj}
-	return s.ProjectShortName()
+	return domain.Session{ProjectPath: l.filterProj}.ProjectShortName()
 }
 
 func (l ListModel) sourceFilterLabel() string {
@@ -882,7 +877,7 @@ func (l ListModel) headerLines() int {
 func (l *ListModel) applySort() {
 	switch l.sortMode {
 	case sortRecent:
-		sort.Sort(session.SortByLastTime(l.filtered))
+		session.SortRecent(l.filtered)
 	case sortProject:
 		sort.SliceStable(l.filtered, func(i, j int) bool {
 			left := l.filtered[i].ProjectPath
@@ -899,11 +894,11 @@ func (l *ListModel) applySort() {
 			return left < right
 		})
 	case sortMsgCount:
-		sort.Sort(session.SortByMsgCount(l.filtered))
+		session.SortByMessages(l.filtered)
 	case sortToolCount:
-		sort.Sort(session.SortByToolCount(l.filtered))
+		session.SortByTools(l.filtered)
 	case sortTokens:
-		sort.Sort(session.SortByTotalTokens(l.filtered))
+		session.SortByTokens(l.filtered)
 	}
 }
 
@@ -945,17 +940,4 @@ func (l *ListModel) focusSession(target session.Session) bool {
 		}
 	}
 	return false
-}
-
-func uniqueProjects(sessions []session.Session) []string {
-	seen := map[string]bool{}
-	var result []string
-	for _, s := range sessions {
-		if !seen[s.ProjectDir] {
-			seen[s.ProjectDir] = true
-			result = append(result, s.ProjectDir)
-		}
-	}
-	sort.Strings(result)
-	return result
 }

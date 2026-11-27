@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 // MenuItem represents a single entry in the context menu.
@@ -65,7 +66,7 @@ func NewContextMenuModel(sources ...session.SourceRegistry) ContextMenuModel {
 		defaultSource = all[0].Source
 	}
 	return ContextMenuModel{
-		items:   menuItemsForSession(registry, session.Session{Source: defaultSource}),
+		items:   menuItemsForSession(registry, session.FromDomain(domain.Session{Source: defaultSource}, "")),
 		sources: registry,
 	}
 }

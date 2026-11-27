@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	session "github.com/jinguo998/claude-sessions/internal/app/model"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 func TestNewPreviewModelInitialState(t *testing.T) {
@@ -30,7 +31,7 @@ func TestPreviewModelSetContentAndSize(t *testing.T) {
 	p := NewPreviewModel()
 	content := "line one\nline two"
 
-	p = p.SetContent("My Title", previewResult{content: content}, session.Session{FilePath: "/tmp/session.jsonl"})
+	p = p.SetContent("My Title", previewResult{content: content}, session.FromDomain(domain.Session{FilePath: "/tmp/session.jsonl"}, ""))
 	if p.title != "My Title" {
 		t.Fatalf("title = %q, want %q", p.title, "My Title")
 	}
@@ -61,11 +62,11 @@ func TestPreviewModelCloseKeys(t *testing.T) {
 }
 
 func TestPreviewModelResumeKeys(t *testing.T) {
-	p := NewPreviewModel().SetContent("Title", previewResult{content: "body"}, session.Session{
+	p := NewPreviewModel().SetContent("Title", previewResult{content: "body"}, session.FromDomain(domain.Session{
 		ID:          "resume-me",
 		ProjectPath: "/tmp/project",
 		Source:      session.SourceClaude,
-	})
+	}, ""))
 
 	_, cmd := p.Update(testKeyRunes("r"))
 	if got, ok := runCmd(t, cmd).(SessionSelectedMsg); !ok || got.PermissionMode != session.PermissionModeFast {
@@ -79,10 +80,10 @@ func TestPreviewModelResumeKeys(t *testing.T) {
 }
 
 func TestPreviewModelMarkdownToggle(t *testing.T) {
-	p := NewPreviewModel().SetContent("Title", previewResult{content: "body"}, session.Session{
+	p := NewPreviewModel().SetContent("Title", previewResult{content: "body"}, session.FromDomain(domain.Session{
 		FilePath: "/tmp/session.jsonl",
 		Source:   session.SourceClaude,
-	})
+	}, ""))
 
 	p, cmd := p.Update(testKeyRunes("m"))
 	if p.markdown {
@@ -105,10 +106,10 @@ func TestPreviewModelMarkdownToggle(t *testing.T) {
 }
 
 func TestPreviewModelHelpIncludesMouseSelectToggle(t *testing.T) {
-	p := NewPreviewModel().SetContent("Title", previewResult{content: "body"}, session.Session{
+	p := NewPreviewModel().SetContent("Title", previewResult{content: "body"}, session.FromDomain(domain.Session{
 		FilePath: "/tmp/session.jsonl",
 		Source:   session.SourceClaude,
-	})
+	}, ""))
 
 	view := stripANSI(p.View())
 	if !strings.Contains(view, "M Select text") {
@@ -117,11 +118,11 @@ func TestPreviewModelHelpIncludesMouseSelectToggle(t *testing.T) {
 }
 
 func TestPreviewModelDefaultResumeFallsBackToSafeForCodex(t *testing.T) {
-	p := NewPreviewModel().SetContent("Title", previewResult{content: "body"}, session.Session{
+	p := NewPreviewModel().SetContent("Title", previewResult{content: "body"}, session.FromDomain(domain.Session{
 		ID:          "codex-resume",
 		ProjectPath: "/tmp/project",
 		Source:      session.SourceCodex,
-	})
+	}, ""))
 
 	_, cmd := p.Update(testKeyRunes("r"))
 	if got, ok := runCmd(t, cmd).(SessionSelectedMsg); !ok || got.PermissionMode != session.PermissionModeSafe {
@@ -139,7 +140,7 @@ func TestPreviewModelScrollAndSearch(t *testing.T) {
 		"line 1", "line 2", "line 3", "line 4", "line 5",
 		"line 6", "line 7", "line 8", "line 9", "line 10",
 	}, "\n")
-	p = p.SetContent("Title", previewResult{content: content}, session.Session{FilePath: "/tmp/session.jsonl"})
+	p = p.SetContent("Title", previewResult{content: content}, session.FromDomain(domain.Session{FilePath: "/tmp/session.jsonl"}, ""))
 
 	start := p.viewport.YOffset
 	p, _ = p.Update(testKeyRunes("k"))

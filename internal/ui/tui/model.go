@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,6 +14,7 @@ import (
 	"github.com/jinguo998/claude-sessions/internal/app/ports"
 	apppreview "github.com/jinguo998/claude-sessions/internal/app/preview"
 	appscan "github.com/jinguo998/claude-sessions/internal/app/scan"
+	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
 type viewState int
@@ -30,21 +32,15 @@ const (
 	viewConfirmTrashEmpty
 )
 
-// Result holds the data main.go needs after the TUI exits.
-type Result struct {
-	Dir            string
-	ID             string
-	Client         string
-	Title          string
-	Fork           bool
-	PermissionMode session.PermissionMode
-	CdOnly         bool // just cd to project dir, don't resume
-	Source         session.Source
-}
+// Result holds the lossless resume target returned when the TUI exits.
+type Result = domain.ResumeTarget
 
-func resumeResult(sess session.Session, mode session.PermissionMode) *Result {
-	return &Result{Dir: sess.ProjectPath, ID: sess.ID, Client: sess.Client, Title: sess.Title,
-		PermissionMode: normalizePermissionMode(mode), Source: sess.Source}
+func resumeResult(sess session.Session, action domain.ResumeAction, mode session.PermissionMode) *Result {
+	return &Result{
+		Session:        sess.Domain(),
+		Action:         action,
+		PermissionMode: normalizePermissionMode(mode),
+	}
 }
 
 type Services struct {
@@ -53,6 +49,7 @@ type Services struct {
 	Archive   *apparchive.Service
 	Clipboard ports.Clipboard
 	Editor    ports.Editor
+	Tracer    ports.Tracer
 	Sources   session.SourceRegistry
 }
 
@@ -73,6 +70,7 @@ type Model struct {
 	projectPicker   ProjectPickerModel
 	trash           TrashModel
 	flash           string // transient status message shown briefly at the bottom
+	scanWarnings    []appscan.Warning
 	mouseEnabled    bool
 	scanSeq         uint64
 	previewSeq      uint64
@@ -107,7 +105,7 @@ func InitialModel(services ...Services) Model {
 		list:         NewListModel(sources),
 		stats:        NewStatsModel(sources),
 		preview:      NewPreviewModel(sources),
-		sidePreview:  NewSidePreviewModel(),
+		sidePreview:  NewSidePreviewModel(svc.Tracer),
 		contextMenu:  NewContextMenuModel(sources),
 		trash:        NewTrashModel(sources),
 		mouseEnabled: true,
@@ -140,7 +138,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case SessionsLoadedMsg:
 		if msg.Token != 0 && msg.Token != m.scanSeq {
-			traceEvent("sessions_loaded_stale", map[string]any{
+			emitTrace(m.services.Tracer, "sessions_loaded_stale", map[string]any{
 				"msg_token":     msg.Token,
 				"current_token": m.scanSeq,
 				"session_count": len(msg.Sessions),
@@ -148,27 +146,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.list = m.list.SetSessions(msg.Sessions)
+		m.scanWarnings = append([]appscan.Warning(nil), msg.Warnings...)
+		var cmds []tea.Cmd
 		if msg.Err != nil {
 			m.flash = "Scan failed: " + msg.Err.Error()
-		} else if len(msg.Warnings) > 0 && len(msg.Sessions) == 0 {
-			m.flash = "Scan warnings: " + msg.Warnings[0].Message
+		} else if len(msg.Warnings) > 0 {
+			if len(msg.Sessions) == 0 {
+				m.flash = "Scan warnings: " + msg.Warnings[0].Message
+			} else {
+				m.flash = formatPartialScanWarnings(msg.Warnings)
+				cmds = append(cmds, tea.Tick(4*time.Second, func(time.Time) tea.Msg { return FlashClearMsg{} }))
+			}
 		}
-		var cmd tea.Cmd
 		if m.wideMode() {
-			cmd = m.loadSidePreviewNow()
+			if cmd := m.loadSidePreviewNow(); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
 		}
-		return m, cmd
+		return m, tea.Batch(cmds...)
 
 	case SidePreviewLoadMsg:
 		if msg.Token != m.sidePreviewSeq || !m.wideMode() {
-			traceEvent("side_preview_debounce_drop", map[string]any{
+			emitTrace(m.services.Tracer, "side_preview_debounce_drop", map[string]any{
 				"msg_token":     msg.Token,
 				"current_token": m.sidePreviewSeq,
 				"wide_mode":     m.wideMode(),
 			})
 			return m, nil
 		}
-		traceEvent("side_preview_debounce_fire", map[string]any{
+		emitTrace(m.services.Tracer, "side_preview_debounce_fire", map[string]any{
 			"token": msg.Token,
 		})
 		return m, m.loadSidePreviewIfNeeded()
@@ -243,8 +249,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.list.applyFilter()
 			m.list.updateListOffset()
 			m.stats = m.stats.SetSessions(m.list.Filtered(), len(m.list.sessions), m.statsScopeSummary())
-			m.flash = "Filtered: " + session.Session{ProjectPath: msg.ProjectPath}.ProjectShortName()
-			var cmd tea.Cmd = tea.Tick(2*time.Second, func(time.Time) tea.Msg { return FlashClearMsg{} })
+			m.flash = "Filtered: " + domain.Session{ProjectPath: msg.ProjectPath}.ProjectShortName()
+			cmd := tea.Tick(2*time.Second, func(time.Time) tea.Msg { return FlashClearMsg{} })
 			if m.wideMode() {
 				cmd = tea.Batch(cmd, m.loadSidePreviewNow())
 			}
@@ -366,7 +372,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		isWide := m.wideMode()
 		if !isWide && wasWide {
 			m.invalidateSidePreviewLoads("resize_narrow")
-			m.sidePreview = NewSidePreviewModel().SetSize(msg.Height)
+			m.sidePreview = NewSidePreviewModel(m.services.Tracer).SetSize(msg.Height)
 			return m, nil
 		}
 		if isWide && !wasWide && m.list.loaded {
@@ -384,7 +390,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Messages emitted by ListModel
 	case SessionSelectedMsg:
-		m.result = resumeResult(msg.Session, msg.PermissionMode)
+		m.result = resumeResult(msg.Session, domain.ResumeActionResume, msg.PermissionMode)
 		return m, tea.Quit
 
 	case SessionForkMsg:
@@ -392,8 +398,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.flash = "Fork unsupported for " + m.services.Sources.Info(msg.Session.Source).Label
 			return m, tea.Tick(2*time.Second, func(time.Time) tea.Msg { return FlashClearMsg{} })
 		}
-		m.result = resumeResult(msg.Session, msg.PermissionMode)
-		m.result.Fork = true
+		m.result = resumeResult(msg.Session, domain.ResumeActionFork, msg.PermissionMode)
 		return m, tea.Quit
 
 	case SessionPreviewMsg:
@@ -635,8 +640,7 @@ func (m Model) handleMenuAction(msg MenuActionMsg) (tea.Model, tea.Cmd) {
 	case ActionFork:
 		return m.Update(forkSelection(m.services.Sources, sess))
 	case ActionCd:
-		m.result = resumeResult(sess, session.PermissionModeSafe)
-		m.result.CdOnly = true
+		m.result = resumeResult(sess, domain.ResumeActionCd, session.PermissionModeSafe)
 		return m, tea.Quit
 	case ActionPreview:
 		return m, m.openPreview(sess, viewList)
@@ -667,7 +671,7 @@ func (m Model) wideMode() bool {
 
 func (m *Model) startScan() tea.Cmd {
 	m.scanSeq++
-	traceEvent("sessions_scan_start", map[string]any{
+	emitTrace(m.services.Tracer, "sessions_scan_start", map[string]any{
 		"token": m.scanSeq,
 	})
 	return scanSessionsCmd(m.scanSeq, m.services.Scan)
@@ -714,19 +718,44 @@ func archivedItemSession(item apparchive.Item) session.Session {
 	if title == "" {
 		title = filepath.Base(item.Metadata.OriginalFilePath)
 	}
-	return session.Session{
+	return session.FromDomain(domain.Session{
 		ID:          item.Metadata.ID,
 		Source:      item.Metadata.Source,
 		FilePath:    item.SessionFile,
 		ProjectPath: item.Metadata.ProjectPath,
 		FirstMsg:    title,
 		Title:       item.Metadata.Title,
+	}, "")
+}
+
+func formatPartialScanWarnings(warnings []appscan.Warning) string {
+	if len(warnings) == 0 {
+		return ""
 	}
+	if len(warnings) == 1 {
+		w := warnings[0]
+		if w.Source != "" {
+			return fmt.Sprintf("Scan warning (%s): %s", w.Source, w.Message)
+		}
+		return "Scan warning: " + w.Message
+	}
+	seen := make(map[string]bool, len(warnings))
+	var sources []string
+	for _, w := range warnings {
+		if w.Source != "" && !seen[w.Source] {
+			seen[w.Source] = true
+			sources = append(sources, w.Source)
+		}
+	}
+	if len(sources) > 0 {
+		return fmt.Sprintf("Scan warnings (%d: %s): %s", len(warnings), strings.Join(sources, ", "), warnings[0].Message)
+	}
+	return fmt.Sprintf("Scan warnings (%d): %s", len(warnings), warnings[0].Message)
 }
 
 func (m *Model) loadSidePreviewNow() tea.Cmd {
 	m.sidePreviewSeq++
-	traceEvent("side_preview_load_now", map[string]any{
+	emitTrace(m.services.Tracer, "side_preview_load_now", map[string]any{
 		"seq": m.sidePreviewSeq,
 	})
 	return m.loadSidePreviewIfNeeded()
@@ -736,7 +765,7 @@ func (m *Model) invalidateSidePreviewLoads(reason string) {
 	m.sidePreviewSeq++
 	m.sidePreviewReq++
 	latestSidePreviewToken.Store(m.sidePreviewReq)
-	traceEvent("side_preview_invalidate", map[string]any{
+	emitTrace(m.services.Tracer, "side_preview_invalidate", map[string]any{
 		"reason": reason,
 		"seq":    m.sidePreviewSeq,
 		"req":    m.sidePreviewReq,
@@ -746,7 +775,7 @@ func (m *Model) invalidateSidePreviewLoads(reason string) {
 func (m *Model) debounceSidePreviewLoad() tea.Cmd {
 	m.sidePreviewSeq++
 	token := m.sidePreviewSeq
-	traceEvent("side_preview_debounce_schedule", map[string]any{
+	emitTrace(m.services.Tracer, "side_preview_debounce_schedule", map[string]any{
 		"token":    token,
 		"delay_ms": traceDurationMS(sidePreviewDebounceDelay),
 	})
@@ -759,14 +788,14 @@ func (m *Model) loadSidePreviewIfNeeded() tea.Cmd {
 	sess, ok := m.list.SelectedSession()
 	if !ok {
 		m.invalidateSidePreviewLoads("no_selected_session")
-		traceEvent("side_preview_load_skip", map[string]any{
+		emitTrace(m.services.Tracer, "side_preview_load_skip", map[string]any{
 			"reason": "no_selected_session",
 		})
-		m.sidePreview = NewSidePreviewModel()
+		m.sidePreview = NewSidePreviewModel(m.services.Tracer)
 		return nil
 	}
 	if !m.sidePreview.NeedsReload(sess) {
-		traceEvent("side_preview_load_skip", map[string]any{
+		emitTrace(m.services.Tracer, "side_preview_load_skip", map[string]any{
 			"reason":      "same_session",
 			"session_id":  sess.ID,
 			"loading":     m.sidePreview.loading,
@@ -780,7 +809,7 @@ func (m *Model) loadSidePreviewIfNeeded() tea.Cmd {
 	}
 	var cmd tea.Cmd
 	m.sidePreviewReq++
-	traceEvent("side_preview_load_issue", map[string]any{
+	emitTrace(m.services.Tracer, "side_preview_load_issue", map[string]any{
 		"session_id": sess.ID,
 		"token":      m.sidePreviewReq,
 		"file_path":  sess.FilePath,
@@ -801,7 +830,7 @@ func (m *Model) loadFullSidePreviewNow() tea.Cmd {
 		previewWidth = m.width/2 - 6
 	}
 	m.sidePreviewReq++
-	traceEvent("side_preview_full_load_issue", map[string]any{
+	emitTrace(m.services.Tracer, "side_preview_full_load_issue", map[string]any{
 		"session_id": m.sidePreview.sessionID,
 		"token":      m.sidePreviewReq,
 		"file_path":  m.sidePreview.filePath,

@@ -6,15 +6,22 @@ import (
 	"github.com/jinguo998/claude-sessions/internal/domain"
 )
 
-type CachedSession struct {
-	Session     domain.Session
-	SearchText  string
+// CacheFingerprint uniquely validates whether a cached session entry is still fresh.
+// It unifies file-backed (Size, ModTime) and index/DB-backed (MetadataKey) invalidation.
+type CacheFingerprint struct {
+	Size        int64
+	ModTime     time.Time
 	MetadataKey string
 }
 
+type CachedSession struct {
+	Session    domain.Session
+	SearchText string
+}
+
 type MetadataCache interface {
-	Get(path string, size int64, modTime time.Time) (CachedSession, bool)
-	Put(path string, size int64, modTime time.Time, sess CachedSession)
+	Get(key string, fp CacheFingerprint) (CachedSession, bool)
+	Put(key string, fp CacheFingerprint, sess CachedSession)
 	Save()
 }
 

@@ -10,7 +10,7 @@ import (
 
 func TestIndexBuildsSearchCorpusOutsideDomain(t *testing.T) {
 	svc := NewService()
-	sessions := []model.Session{{
+	sessions := []model.Session{model.FromDomain(domain.Session{
 		ID:          "s1",
 		Source:      domain.SourceCodex,
 		ProjectPath: "/workspace/acme",
@@ -20,8 +20,7 @@ func TestIndexBuildsSearchCorpusOutsideDomain(t *testing.T) {
 		Labels:      []string{"billing"},
 		Attributes:  map[string]string{"branch": "feature/payments"},
 		FirstMsg:    "fix checkout",
-		SearchText:  "raw parsed tool text",
-	}}
+	}, "raw parsed tool text")}
 
 	indexed := svc.Index(sessions)
 	if len(indexed) != 1 {
@@ -50,9 +49,9 @@ func TestIndexBuildsSearchCorpusOutsideDomain(t *testing.T) {
 func TestFilterUsesQueryProjectAndSource(t *testing.T) {
 	svc := NewService()
 	sessions := []model.Session{
-		{ID: "claude", Source: domain.SourceClaude, ProjectPath: "/a", FirstMsg: "billing bug"},
-		{ID: "codex", Source: domain.SourceCodex, ProjectPath: "/a", Title: "billing plan"},
-		{ID: "other", Source: domain.SourceCodex, ProjectPath: "/b", Title: "billing plan"},
+		model.FromDomain(domain.Session{ID: "claude", Source: domain.SourceClaude, ProjectPath: "/a", FirstMsg: "billing bug"}, ""),
+		model.FromDomain(domain.Session{ID: "codex", Source: domain.SourceCodex, ProjectPath: "/a", Title: "billing plan"}, ""),
+		model.FromDomain(domain.Session{ID: "other", Source: domain.SourceCodex, ProjectPath: "/b", Title: "billing plan"}, ""),
 	}
 
 	got := svc.Filter(sessions, Filter{

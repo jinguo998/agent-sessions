@@ -5,7 +5,18 @@ import (
 	"fmt"
 
 	"github.com/jinguo998/claude-sessions/internal/domain"
+	"github.com/jinguo998/claude-sessions/internal/source"
 )
+
+func (a Adapter) Descriptor() source.Descriptor {
+	return source.Descriptor{
+		Source:                domain.SourceOpenCode,
+		Label:                 "OpenCode",
+		Badge:                 "O",
+		DefaultPermissionMode: domain.PermissionModeSafe,
+		SupportsFork:          true,
+	}
+}
 
 func (a Adapter) PlanResume(ctx context.Context, target domain.ResumeTarget) (domain.ResumePlan, error) {
 	_ = ctx
